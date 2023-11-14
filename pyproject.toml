@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "fastapi-easy-admin"
+version = "0.0.1"
+description = ""
+authors = ["Anton Nikolskiy <a.nikolskiy@tyver.io>"]
+license = "GNU GENERAL PUBLIC LICENSE"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.12"
+sqlalchemy = "^2.0.23"
+asyncpg = "^0.29.0"
+fastapi = "^0.104.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

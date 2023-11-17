@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "fastapi-easy-admin"
+name = "north_admin"
 version = "0.0.1"
 description = ""
 authors = ["Anton Nikolskiy <a.nikolskiy@tyver.io>"]
@@ -9,10 +9,40 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "3.12"
 sqlalchemy = "^2.0.23"
-asyncpg = "^0.29.0"
 fastapi = "^0.104.1"
+ruff = "^0.1.5"
 
+
+[tool.poetry.group.dev.dependencies]
+asyncpg = "^0.29.0"
+psycopg = "^3.1.13"
+uvicorn = "^0.24.0.post1"
+greenlet = "^3.0.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+    "W191", # indentation contains tabs
+]
+
+[tool.ruff.isort]
+known-third-party = ["fastapi_easy_admin", "fastapi", "pydantic", "starlette", "sqlalchemy", "asyncpg"]
+
+[tool.ruff.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true

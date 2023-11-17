@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, create_model
 from sqlalchemy import inspect
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from north_admin.dto import ModelInfoDTO, ColumnDTO
@@ -15,11 +16,12 @@ class AdminRouter:
     model_info: ModelInfoDTO
     model_columns: list[InstrumentedAttribute]
     key_columns: list[InstrumentedAttribute]
+    sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
 
-    create_schema: BaseModel
-    update_schema: BaseModel
-    get_schema: BaseModel
-    list_schema: BaseModel
+    create_schema: BaseModel | None
+    update_schema: BaseModel | None
+    get_schema: BaseModel | None
+    list_schema: BaseModel | None
 
     enabled_methods: list[AdminMethods]
     list_columns: list[InstrumentedAttribute]
@@ -39,6 +41,7 @@ class AdminRouter:
     def __init__(
         self,
         model: ModelType,
+        sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
         list_columns: list[InstrumentedAttribute] | None = None,
@@ -57,7 +60,14 @@ class AdminRouter:
     ):
         self.model = model
         self.model_id = str(self.model.__table__)
-        self.router = APIRouter()
+
+        self.sqlalchemy_session_maker = sqlalchemy_session_maker
+        self.router = APIRouter(prefix=f'/{self.model_id}')
+
+        self.get_schema = None
+        self.list_schema = None
+        self.create_schema = None
+        self.update_schema = None
 
         self.enabled_methods = enabled_methods if enabled_methods else list(AdminMethods)
         self.soft_delete_column = soft_delete_field
@@ -84,7 +94,14 @@ class AdminRouter:
         self.update_columns = update_columns if update_columns else non_key_columns
         self.sortable_columns = sortable_columns if sortable_columns else self.key_columns
 
-    def init_routers(self) -> None:
+    async def get_endpoint(
+        self,
+        item_id: int | str,
+    ):
+        async with self.sqlalchemy_session_maker() as session:
+            return None
+
+    def setup_router(self) -> None:
         self.model_info = ModelInfoDTO(
             title=self.model_title,
             columns={},
@@ -125,6 +142,11 @@ class AdminRouter:
                 self.model_title,
                 **get_schema_items,
             )
+
+            self.router.get(
+                path='/{item_id}',
+                response_model=self.get_schema,
+            )(self.get_endpoint)
 
         if AdminMethods.GET_LIST:
             self.list_schema = create_model(

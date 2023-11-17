@@ -87,6 +87,7 @@ class NorthAdmin:
     ) -> None:
         admin_router = AdminRouter(
             model=model,
+            sqlalchemy_session_maker=self.sqlalchemy_session_maker,
             model_title=model_title,
             enabled_methods=enabled_methods,
             list_columns=list_columns,
@@ -98,7 +99,7 @@ class NorthAdmin:
             filters=filters,
         )
 
-        admin_router.init_routers()
+        admin_router.setup_router()
 
         self.models_info[admin_router.model_id] = admin_router.model_info
         self.setup_admin_info_route()

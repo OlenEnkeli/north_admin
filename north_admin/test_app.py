@@ -52,7 +52,6 @@ setup_admin(
 )
 
 
-
 if __name__ == '__main__':
     import uvicorn
 

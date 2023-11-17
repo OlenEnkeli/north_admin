@@ -157,3 +157,5 @@ cython_debug/
 .vscode/
 
 prototypes.py
+
+.DS_Store

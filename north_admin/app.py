@@ -1,6 +1,8 @@
 from typing import Literal
 
 from sqlalchemy.orm import DeclarativeBase
+from fastapi import FastAPI
+
 from sqlalchemy.pool import Pool, NullPool
 from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
@@ -10,10 +12,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
-from .ifaces import NorthAdminIface
 
-
-class NorthAdmin(NorthAdminIface):
+class NorthAdmin(FastAPI):
     sqlalchemy_engine: AsyncEngine
     sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
 
@@ -34,7 +34,8 @@ class NorthAdmin(NorthAdminIface):
             (
                 f'postgresql+asyncpg://{sqlalchemy_user}:'
                 f'{sqlalchemy_password}@'
-                f'{sqlalchemy_server}/'
+                f'{sqlalchemy_user}/'
+                f'{sqlalchemy_server}:'
                 f'{sqlalchemy_db}'
             ),
             echo=False,

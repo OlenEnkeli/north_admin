@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "fastapi_easy_admin"
+name = "north_admin"
 version = "0.0.1"
 description = ""
 authors = ["Anton Nikolskiy <a.nikolskiy@tyver.io>"]

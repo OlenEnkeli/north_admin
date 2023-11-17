@@ -1,7 +1,4 @@
-from typing import Literal
-
-from sqlalchemy.orm import DeclarativeBase
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 
 from sqlalchemy.pool import Pool, NullPool
 from sqlalchemy.ext.asyncio import (
@@ -12,35 +9,46 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
+from north_admin.admin_router import AdminRouter
+from north_admin.dto import ModelInfoDTO
+from north_admin.types import ModelType, AdminMethods, FilterType
 
-class NorthAdmin(FastAPI):
+
+class NorthAdmin:
+    router: APIRouter
+    api_router: APIRouter
+    frontend_router: APIRouter
+
+    models_info: dict[str, ModelInfoDTO]
+    logo_url: str | None
+
     sqlalchemy_engine: AsyncEngine
     sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
 
-    logo_url: str | None
-
     def __init__(
         self,
-        sqlalchemy_db: str,
-        sqlalchemy_server: str = '127.0.0.1:5432',
-        sqlalchemy_user: str = 'postgres',
-        sqlalchemy_password: str = '',
-        sqlalchemy_pool_class: Pool = NullPool,
-        sqlalchemy_pool_size: int = 1,
-        admin_title: str = 'Admin Panel',
+        sqlalchemy_uri: str,
         logo_url: str | None = None,
+        sqlalchemy_pool_size: int | None = None,
+        sqlalchemy_pool_class: Pool = NullPool,
     ):
+        self.router = APIRouter()
+        self.api_router = APIRouter(tags=['Admin API'])
+        self.frontend_router = APIRouter(tags=['Admin Frontend'])
+
+        self.logo_url = logo_url
+        self.models_info = {}
+
+        sqlalchemy_engine_args = {
+            'poolclass': sqlalchemy_pool_class,
+        }
+        if sqlalchemy_pool_class != NullPool and sqlalchemy_pool_size:
+            sqlalchemy_engine_args['pool_size'] = sqlalchemy_pool_size
+
         self.sqlalchemy_engine = create_async_engine(
-            (
-                f'postgresql+asyncpg://{sqlalchemy_user}:'
-                f'{sqlalchemy_password}@'
-                f'{sqlalchemy_user}/'
-                f'{sqlalchemy_server}:'
-                f'{sqlalchemy_db}'
-            ),
-            echo=False,
-            pool_size=sqlalchemy_pool_size,
-            poolclass=sqlalchemy_pool_class,
+            sqlalchemy_uri,
+
+            **sqlalchemy_engine_args,
         )
 
         self.sqlalchemy_session_maker = async_sessionmaker(
@@ -48,39 +56,71 @@ class NorthAdmin(FastAPI):
             expire_on_commit=False,
         )
 
-        self.logo_url = logo_url
+    async def admin_info_route(self) -> dict[str, ModelInfoDTO]:
+        return self.models_info
 
-        super().__init__(
-            title=admin_title,
-            version='0.0.1',
-        )
+    def setup_admin_info_route(self) -> None:
+        self.api_router.get(
+            path='/',
+            response_model=dict[str, ModelInfoDTO],
+            description='Info about admin API structure',
+        )(self.admin_info_route)
 
-    def add_admin_route(
+    def add_admin_routes(
         self,
-        model: DeclarativeBase,
-        enabled_methods: list[
-            Literal[
-                'get_list',
-                'get_one',
-                'create',
-                'update',
-                'soft_delete',
-                'delete',
-            ]
-        ] | None = None,
-        list_fields: list[InstrumentedAttribute] | None = None,
-        get_fields: list[InstrumentedAttribute] | None = None,
-        create_fields: list[InstrumentedAttribute] | None = None,
-        update_fields: list[InstrumentedAttribute] | None = None,
+        model: ModelType,
+        model_title: str | None = None,
+        enabled_methods: list[AdminMethods] | None = None,
+        list_columns: list[InstrumentedAttribute] | None = None,
+        get_columns: list[InstrumentedAttribute] | None = None,
+        create_columns: list[InstrumentedAttribute] | None = None,
+        update_columns: list[InstrumentedAttribute] | None = None,
         soft_delete_field: InstrumentedAttribute | None = None,
-        sortable_fields: list[InstrumentedAttribute] | None = None,
+        sortable_columns: list[InstrumentedAttribute] | None = None,
         filters: dict[
           str,
           tuple[
               InstrumentedAttribute,
-              Literal['checkbox', 'gt', 'lt'],
+              FilterType,
           ],
         ] | None = None,
     ) -> None:
-        if not enabled_methods:
-            enabled_methods = ['get_list', 'get_one', 'create', 'update', 'soft_delete', 'delete']
+        admin_router = AdminRouter(
+            model=model,
+            model_title=model_title,
+            enabled_methods=enabled_methods,
+            list_columns=list_columns,
+            get_columns=get_columns,
+            create_columns=create_columns,
+            update_columns=update_columns,
+            soft_delete_field=soft_delete_field,
+            sortable_columns=sortable_columns,
+            filters=filters,
+        )
+
+        admin_router.init_routers()
+
+        self.models_info[admin_router.model_id] = admin_router.model_info
+        self.setup_admin_info_route()
+
+        self.api_router.include_router(admin_router.router)
+
+    def setup_router(self) -> None:
+        self.router.include_router(router=self.frontend_router)
+        self.router.include_router(
+            router=self.api_router,
+            prefix='/api',
+        )
+
+
+def setup_admin(
+    app: FastAPI,
+    admin_app: NorthAdmin,
+    admin_prefix: str = '/admin',
+):
+    admin_app.setup_router()
+
+    app.include_router(
+        prefix=admin_prefix,
+        router=admin_app.router,
+    )

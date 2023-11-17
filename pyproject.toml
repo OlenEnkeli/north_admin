@@ -9,10 +9,15 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "3.12"
 sqlalchemy = "^2.0.23"
-asyncpg = "^0.29.0"
 fastapi = "^0.104.1"
 ruff = "^0.1.5"
 
+
+[tool.poetry.group.dev.dependencies]
+asyncpg = "^0.29.0"
+psycopg = "^3.1.13"
+uvicorn = "^0.24.0.post1"
+greenlet = "^3.0.1"
 
 [build-system]
 requires = ["poetry-core"]

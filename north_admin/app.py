@@ -33,8 +33,8 @@ class NorthAdmin:
         sqlalchemy_pool_class: Pool = NullPool,
     ):
         self.router = APIRouter()
-        self.api_router = APIRouter(tags=['Admin API'])
-        self.frontend_router = APIRouter(tags=['Admin Frontend'])
+        self.api_router = APIRouter()
+        self.frontend_router = APIRouter()
 
         self.logo_url = logo_url
         self.models_info = {}
@@ -47,7 +47,6 @@ class NorthAdmin:
 
         self.sqlalchemy_engine = create_async_engine(
             sqlalchemy_uri,
-
             **sqlalchemy_engine_args,
         )
 
@@ -64,6 +63,7 @@ class NorthAdmin:
             path='/',
             response_model=dict[str, ModelInfoDTO],
             description='Info about admin API structure',
+            tags=['Admin info'],
         )(self.admin_info_route)
 
     def add_admin_routes(
@@ -71,11 +71,12 @@ class NorthAdmin:
         model: ModelType,
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
+        pkey_column: InstrumentedAttribute | None = None,
         list_columns: list[InstrumentedAttribute] | None = None,
         get_columns: list[InstrumentedAttribute] | None = None,
         create_columns: list[InstrumentedAttribute] | None = None,
         update_columns: list[InstrumentedAttribute] | None = None,
-        soft_delete_field: InstrumentedAttribute | None = None,
+        soft_delete_column: InstrumentedAttribute | None = None,
         sortable_columns: list[InstrumentedAttribute] | None = None,
         filters: dict[
           str,
@@ -94,7 +95,7 @@ class NorthAdmin:
             get_columns=get_columns,
             create_columns=create_columns,
             update_columns=update_columns,
-            soft_delete_field=soft_delete_field,
+            soft_delete_column=soft_delete_column,
             sortable_columns=sortable_columns,
             filters=filters,
         )

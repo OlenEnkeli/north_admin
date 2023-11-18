@@ -1,9 +1,9 @@
 from datetime import datetime as dt
 
 from fastapi import FastAPI
-from sqlalchemy import func
+from sqlalchemy import func, create_engine
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, sessionmaker
 
 from north_admin import NorthAdmin, setup_admin
 
@@ -27,14 +27,14 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(unique=True, nullable=False, index=True)
     password: Mapped[str] = mapped_column(nullable=False)
-
     fullname: Mapped[str] = mapped_column(nullable=True)
-    telegram: Mapped[str] = mapped_column(nullable=True)
-
     is_active: Mapped[bool] = mapped_column(default=False)
 
-    verification_code: Mapped[str] = mapped_column(nullable=True)
-    password_reset_code: Mapped[str] = mapped_column(nullable=True)
+
+engine = create_engine(
+    'postgresql+psycopg://postgres:@127.0.0.1:5432/north_admin_test_app',
+)
+session_maker = sessionmaker(bind=engine)
 
 
 app = FastAPI()
@@ -50,6 +50,8 @@ setup_admin(
     app=app,
     admin_app=admin_app,
 )
+
+Base.metadata.create_all(bind=engine)
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ from enum import Enum
 
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
 
+
 ModelType = Type[DeclarativeBase]
 
 

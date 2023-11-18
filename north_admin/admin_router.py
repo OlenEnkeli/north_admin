@@ -4,7 +4,9 @@ from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
+from north_admin.crud import crud
 from north_admin.dto import ModelInfoDTO, ColumnDTO
+from north_admin.helpers import set_origin_to_pydantic_schema
 from north_admin.types import ModelType, AdminMethods, FilterType, FieldAPIType, sqlalchemy_column_to_pydantic
 
 
@@ -15,6 +17,7 @@ class AdminRouter:
     router: APIRouter
     model_info: ModelInfoDTO
     model_columns: list[InstrumentedAttribute]
+    pkey_column: InstrumentedAttribute
     key_columns: list[InstrumentedAttribute]
     sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
 
@@ -44,11 +47,12 @@ class AdminRouter:
         sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
+        pkey_column: InstrumentedAttribute | None = None,
         list_columns: list[InstrumentedAttribute] | None = None,
         get_columns: list[InstrumentedAttribute] | None = None,
         create_columns: list[InstrumentedAttribute] | None = None,
         update_columns: list[InstrumentedAttribute] | None = None,
-        soft_delete_field: InstrumentedAttribute | None = None,
+        soft_delete_column: InstrumentedAttribute | None = None,
         sortable_columns: list[InstrumentedAttribute] | None = None,
         filters: dict[
             str,
@@ -60,9 +64,13 @@ class AdminRouter:
     ):
         self.model = model
         self.model_id = str(self.model.__table__)
+        self.model_title = model_title if model_title else self.model_id.capitalize()
 
         self.sqlalchemy_session_maker = sqlalchemy_session_maker
-        self.router = APIRouter(prefix=f'/{self.model_id}')
+        self.router = APIRouter(
+            prefix=f'/{self.model_id}',
+            tags=[self.model_title]
+        )
 
         self.get_schema = None
         self.list_schema = None
@@ -70,8 +78,19 @@ class AdminRouter:
         self.update_schema = None
 
         self.enabled_methods = enabled_methods if enabled_methods else list(AdminMethods)
-        self.soft_delete_column = soft_delete_field
+        self.soft_delete_column = soft_delete_column
         self.filters = filters
+
+        if pkey_column:
+            self.pkey_column = pkey_column
+        else:
+            try:
+                self.pkey_column = getattr(self.model, 'id')
+            except AttributeError:
+                raise Exception(
+                    f'Can`t determinate pkey field for {self.model_id} model.'
+                    'Try to set it manually.'
+                )
 
         self.model_columns = inspect(model).columns.values()
 
@@ -87,19 +106,74 @@ class AdminRouter:
             if field not in self.key_columns
         ]
 
-        self.model_title = model_title if model_title else self.model_id.capitalize()
         self.list_columns = list_columns if list_columns else self.model_columns
         self.get_columns = get_columns if get_columns else self.model_columns
         self.create_columns = create_columns if create_columns else non_key_columns
         self.update_columns = update_columns if update_columns else non_key_columns
         self.sortable_columns = sortable_columns if sortable_columns else self.key_columns
 
-    async def get_endpoint(
+    def convert_item_id_to_model_type(
         self,
         item_id: int | str,
     ):
+        python_type, _ = sqlalchemy_column_to_pydantic(column=self.pkey_column)
+        return python_type(item_id)
+
+    async def get_endpoint(
+        self,
+        item_id: int | str,
+    ) -> BaseModel:
         async with self.sqlalchemy_session_maker() as session:
-            return None
+            return await crud.get_item(
+                model=self.model,
+                pkey_column=self.pkey_column,
+                session=session,
+                item_id=self.convert_item_id_to_model_type(item_id),
+            )
+
+    async def list_endpoint(
+        self,
+    ) -> BaseModel:
+        async with self.sqlalchemy_session_maker() as session:
+            return BaseModel()
+
+    async def create_endpoint(
+        self,
+        origin: any,
+    ) -> BaseModel:
+        async with self.sqlalchemy_session_maker() as session:
+            return BaseModel()
+
+    async def update_endpoint(
+        self,
+        origin: any,
+        item_id: int | str,
+    ) -> BaseModel:
+        async with self.sqlalchemy_session_maker() as session:
+            return BaseModel()
+
+    async def delete_endpoint(
+        self,
+        item_id: int | str,
+    ) -> dict:
+        async with self.sqlalchemy_session_maker() as session:
+            return BaseModel()
+
+    async def soft_delete_endpoint(
+        self,
+        item_id: int | str,
+    ) -> BaseModel:
+        async with self.sqlalchemy_session_maker() as session:
+            return BaseModel()
+
+    def create_models(
+        self,
+        **kwargs,
+    ) -> BaseModel:
+        return create_model(
+            self.model_title,
+            **kwargs,
+        )
 
     def setup_router(self) -> None:
         self.model_info = ModelInfoDTO(
@@ -137,32 +211,56 @@ class AdminRouter:
             if AdminMethods.UPDATE in self.enabled_methods and field in self.update_columns:
                 update_schema_items[field.key] = pydantic_params
 
+        if AdminMethods.GET_LIST:
+            self.list_schema = self.create_models(**list_schema_items)
+
+            self.router.get(
+                path='/',
+                response_model=self.get_schema,
+            )(self.list_endpoint)
+
         if AdminMethods.GET_ONE:
-            self.get_schema = create_model(
-                self.model_title,
-                **get_schema_items,
-            )
+            self.get_schema = self.create_models(**get_schema_items)
 
             self.router.get(
                 path='/{item_id}',
                 response_model=self.get_schema,
             )(self.get_endpoint)
 
-        if AdminMethods.GET_LIST:
-            self.list_schema = create_model(
-                self.model_title,
-                **list_schema_items,
+        if AdminMethods.CREATE:
+            self.create_schema = self.create_models(**create_schema_items)
+
+            decorated_endpoint = set_origin_to_pydantic_schema(
+                schema=self.create_schema,
+                function=self.create_endpoint,
             )
 
-        if AdminMethods.CREATE:
-            self.create_schema = create_model(
-                self.model_title,
-                **create_schema_items,
-            )
+            self.router.post(
+                path='/',
+                response_model=self.get_schema,
+            )(decorated_endpoint)
 
         if AdminMethods.UPDATE:
-            self.update_schema = create_model(
-                self.model_title,
-                **update_schema_items,
+            self.update_schema = self.create_models(**update_schema_items)
+
+            decorated_endpoint = set_origin_to_pydantic_schema(
+                schema=self.update_schema,
+                function=self.update_endpoint,
             )
 
+            self.router.patch(
+                path='/{item_id}',
+                response_model=self.get_schema,
+            )(decorated_endpoint)
+
+        if AdminMethods.DELETE:
+            self.router.delete(
+                path='/{item_id}',
+                response_model=self.get_schema,
+            )(self.delete_endpoint)
+
+        if AdminMethods.SOFT_DELETE:
+            self.router.delete(
+                path='/{item_id}/soft',
+                response_model=self.get_schema,
+            )(self.soft_delete_endpoint)

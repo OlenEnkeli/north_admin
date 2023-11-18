@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, create_model
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-from sqlalchemy.orm import InstrumentedAttribute
 
 from north_admin.crud import crud
 from north_admin.dto import ModelInfoDTO, ColumnDTO
 from north_admin.helpers import set_origin_to_pydantic_schema
-from north_admin.types import ModelType, AdminMethods, FilterType, FieldAPIType, sqlalchemy_column_to_pydantic
+from north_admin.types import ModelType, AdminMethods, FilterType, FieldAPIType, sqlalchemy_column_to_pydantic, \
+    ColumnType
 
 
 class AdminRouter:
@@ -16,9 +16,9 @@ class AdminRouter:
 
     router: APIRouter
     model_info: ModelInfoDTO
-    model_columns: list[InstrumentedAttribute]
-    pkey_column: InstrumentedAttribute
-    key_columns: list[InstrumentedAttribute]
+    model_columns: list[ColumnType]
+    pkey_column: ColumnType
+    key_columns: list[ColumnType]
     sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
 
     create_schema: BaseModel | None
@@ -27,16 +27,17 @@ class AdminRouter:
     list_schema: BaseModel | None
 
     enabled_methods: list[AdminMethods]
-    list_columns: list[InstrumentedAttribute]
-    get_columns: list[InstrumentedAttribute]
-    create_columns: list[InstrumentedAttribute]
-    update_columns: list[InstrumentedAttribute]
-    soft_delete_column: InstrumentedAttribute | None
-    sortable_columns: list[InstrumentedAttribute]
+    excluded_columns: list[ColumnType] | None = None
+    list_columns: list[ColumnType]
+    get_columns: list[ColumnType]
+    create_columns: list[ColumnType]
+    update_columns: list[ColumnType]
+    soft_delete_column: ColumnType | None
+    sortable_columns: list[ColumnType]
     filters: dict[
          str,
          tuple[
-             InstrumentedAttribute,
+             ColumnType,
              FilterType,
          ],
     ] | None
@@ -47,17 +48,18 @@ class AdminRouter:
         sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
-        pkey_column: InstrumentedAttribute | None = None,
-        list_columns: list[InstrumentedAttribute] | None = None,
-        get_columns: list[InstrumentedAttribute] | None = None,
-        create_columns: list[InstrumentedAttribute] | None = None,
-        update_columns: list[InstrumentedAttribute] | None = None,
-        soft_delete_column: InstrumentedAttribute | None = None,
-        sortable_columns: list[InstrumentedAttribute] | None = None,
+        pkey_column: ColumnType | None = None,
+        list_columns: list[ColumnType] | None = None,
+        get_columns: list[ColumnType] | None = None,
+        create_columns: list[ColumnType] | None = None,
+        update_columns: list[ColumnType] | None = None,
+        soft_delete_column: ColumnType | None = None,
+        sortable_columns: list[ColumnType] | None = None,
+        excluded_columns: list[ColumnType] | None = None,
         filters: dict[
             str,
             tuple[
-                InstrumentedAttribute,
+                ColumnType,
                 FilterType,
             ],
         ] | None = None,
@@ -80,6 +82,7 @@ class AdminRouter:
         self.enabled_methods = enabled_methods if enabled_methods else list(AdminMethods)
         self.soft_delete_column = soft_delete_column
         self.filters = filters
+        self.excluded_columns = excluded_columns if excluded_columns else []
 
         if pkey_column:
             self.pkey_column = pkey_column
@@ -135,14 +138,18 @@ class AdminRouter:
         self,
     ) -> BaseModel:
         async with self.sqlalchemy_session_maker() as session:
-            return BaseModel()
+            raise NotImplementedError
 
     async def create_endpoint(
         self,
         origin: any,
     ) -> BaseModel:
         async with self.sqlalchemy_session_maker() as session:
-            return BaseModel()
+            return await crud.create_item(
+                session=session,
+                model=self.model,
+                origin=origin,
+            )
 
     async def update_endpoint(
         self,
@@ -150,21 +157,56 @@ class AdminRouter:
         item_id: int | str,
     ) -> BaseModel:
         async with self.sqlalchemy_session_maker() as session:
-            return BaseModel()
+            return await crud.update_item(
+                session=session,
+                model=self.model,
+                pkey_column=self.pkey_column,
+                item_id=self.convert_item_id_to_model_type(item_id),
+                origin=origin,
+            )
 
     async def delete_endpoint(
         self,
         item_id: int | str,
     ) -> dict:
         async with self.sqlalchemy_session_maker() as session:
-            return BaseModel()
+            async with self.sqlalchemy_session_maker() as session:
+                return await crud.update_item(
+                    session=session,
+                    model=self.model,
+                    pkey_column=self.pkey_column,
+                    item_id=self.convert_item_id_to_model_type(item_id),
+                )
 
     async def soft_delete_endpoint(
         self,
         item_id: int | str,
     ) -> BaseModel:
         async with self.sqlalchemy_session_maker() as session:
-            return BaseModel()
+            return await crud.update_item(
+                session=session,
+                model=self.model,
+                pkey_column=self.pkey_column,
+                item_id=self.convert_item_id_to_model_type(item_id),
+                **{
+                    self.soft_delete_column.key: False,
+                },
+            )
+
+    async def restore_endpoint(
+        self,
+        item_id: int | str,
+    ) -> BaseModel:
+        async with self.sqlalchemy_session_maker() as session:
+            return await crud.update_item(
+                session=session,
+                model=self.model,
+                pkey_column=self.pkey_column,
+                item_id=self.convert_item_id_to_model_type(item_id),
+                **{
+                    self.soft_delete_column.key: True,
+                },
+            )
 
     def create_models(
         self,
@@ -187,6 +229,9 @@ class AdminRouter:
         list_schema_items: dict[str, tuple[type, any]] = {}
 
         for field in self.model_columns:
+            if field in self.excluded_columns:
+                continue
+
             pydantic_params = sqlalchemy_column_to_pydantic(field)
 
             self.model_info.columns[field.key] = ColumnDTO(
@@ -256,11 +301,21 @@ class AdminRouter:
         if AdminMethods.DELETE:
             self.router.delete(
                 path='/{item_id}',
-                response_model=self.get_schema,
+                response_model=dict,
             )(self.delete_endpoint)
 
         if AdminMethods.SOFT_DELETE:
+            if not self.soft_delete_column:
+                raise Exception(
+                    f'To make soft delete for {self.model_title} model awailable set soft_delete_column params'
+                )
+
             self.router.delete(
                 path='/{item_id}/soft',
                 response_model=self.get_schema,
             )(self.soft_delete_endpoint)
+
+            self.router.get(
+                path='/{item_id}/restore',
+                response_model=self.get_schema,
+            )(self.restore_endpoint)

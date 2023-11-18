@@ -42,9 +42,17 @@ admin_app = NorthAdmin(
     sqlalchemy_uri='postgresql+asyncpg://postgres:@127.0.0.1:5432/north_admin_test_app',
 )
 
+user_get_columns = [User.id, User.email, User.fullname, User.is_active, User.created_at, User.updated_at]
+
 admin_app.add_admin_routes(
     model=User,
     model_title='Users',
+    pkey_column=User.id,
+    soft_delete_column=User.is_active,
+    get_columns=user_get_columns,  # noqa
+    list_columns=user_get_columns,  # noqa
+    update_columns=[User.email, User.fullname, User.is_active],  # noqa
+    create_columns=[User.email, User.fullname, User.is_active, User.password],  # noqa
 )
 setup_admin(
     app=app,

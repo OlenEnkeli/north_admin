@@ -1,10 +1,12 @@
 from typing import Type
 from enum import Enum
 
+from sqlalchemy import Column
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
 
 
 ModelType = Type[DeclarativeBase]
+ColumnType = Column | InstrumentedAttribute | None
 
 
 class AdminMethods(str, Enum):
@@ -30,14 +32,14 @@ class FieldAPIType(str, Enum):
     ARRAY = 'array'
 
 
-def sqlalchemy_column_to_pydantic(column: InstrumentedAttribute) -> tuple[type, any]:
+def sqlalchemy_column_to_pydantic(column: ColumnType) -> tuple[type, any]:
     """
     :param column: InstrumentedAttribute (SQLAlchemy column)
     :return: (python_type: type, default: any)
     """
 
     python_type: type | None = None
-    default: any = None
+    default: any = column.default
 
     if hasattr(column.type, 'impl'):
         if hasattr(column.type.impl, 'python_type'):

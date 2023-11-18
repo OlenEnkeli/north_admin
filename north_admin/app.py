@@ -7,11 +7,10 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
 )
-from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from north_admin.admin_router import AdminRouter
 from north_admin.dto import ModelInfoDTO
-from north_admin.types import ModelType, AdminMethods, FilterType
+from north_admin.types import ModelType, AdminMethods, FilterType, ColumnType
 
 
 class NorthAdmin:
@@ -71,17 +70,18 @@ class NorthAdmin:
         model: ModelType,
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
-        pkey_column: InstrumentedAttribute | None = None,
-        list_columns: list[InstrumentedAttribute] | None = None,
-        get_columns: list[InstrumentedAttribute] | None = None,
-        create_columns: list[InstrumentedAttribute] | None = None,
-        update_columns: list[InstrumentedAttribute] | None = None,
-        soft_delete_column: InstrumentedAttribute | None = None,
-        sortable_columns: list[InstrumentedAttribute] | None = None,
+        excluded_columns: list[ColumnType] | None = None,
+        pkey_column: ColumnType | None = None,
+        list_columns: list[ColumnType] | None = None,
+        get_columns: list[ColumnType] | None = None,
+        create_columns: list[ColumnType] | None = None,
+        update_columns: list[ColumnType] | None = None,
+        soft_delete_column: ColumnType | None = None,
+        sortable_columns: list[ColumnType] | None = None,
         filters: dict[
           str,
           tuple[
-              InstrumentedAttribute,
+              ColumnType,
               FilterType,
           ],
         ] | None = None,
@@ -91,7 +91,9 @@ class NorthAdmin:
             sqlalchemy_session_maker=self.sqlalchemy_session_maker,
             model_title=model_title,
             enabled_methods=enabled_methods,
+            excluded_columns=excluded_columns,
             list_columns=list_columns,
+            pkey_column=pkey_column,
             get_columns=get_columns,
             create_columns=create_columns,
             update_columns=update_columns,

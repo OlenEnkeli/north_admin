@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError, DatabaseError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
+from north_admin.exceptions import NothingToUpdate
 from north_admin.types import ModelType, ColumnType
 
 
@@ -63,7 +64,7 @@ class CRUD:
         )
 
         if not origin and not kwargs:
-            raise Exception(f'Nothing to update at {item_id} item of {model} model')
+            raise NothingToUpdate(model_id=str(model.__table__), item_id=item_id)
 
         if origin:
             for key, value in origin.model_dump().items():

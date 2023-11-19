@@ -40,9 +40,12 @@ ignore = [
     "W191", # indentation contains tabs
 ]
 
+line-length = 120
+
 [tool.ruff.isort]
-known-third-party = ["fastapi_easy_admin", "fastapi", "pydantic", "starlette", "sqlalchemy", "asyncpg"]
+known-third-party = ["fastapi_easy_admin", "fastapi", "pydantic", "starlette", "sqlalchemy", "asyncpg", "psycopg"]
 
 [tool.ruff.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
+

@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, create_model
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from north_admin.crud import crud
 from north_admin.dto import ModelInfoDTO, ColumnDTO
+from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField
 from north_admin.helpers import set_origin_to_pydantic_schema
-from north_admin.types import ModelType, AdminMethods, FilterType, FieldAPIType, sqlalchemy_column_to_pydantic, \
-    ColumnType
+from north_admin.types import (
+    ModelType,
+    AdminMethods,
+    FilterType,
+    FieldAPIType,
+    sqlalchemy_column_to_pydantic,
+    ColumnType,
+)
 
 
 class AdminRouter:
@@ -90,10 +97,7 @@ class AdminRouter:
             try:
                 self.pkey_column = getattr(self.model, 'id')
             except AttributeError:
-                raise Exception(
-                    f'Can`t determinate pkey field for {self.model_id} model.'
-                    'Try to set it manually.'
-                )
+                raise NoDefinedPKException(model_id=self.model_id)
 
         self.model_columns = inspect(model).columns.values()
 
@@ -114,6 +118,9 @@ class AdminRouter:
         self.create_columns = create_columns if create_columns else non_key_columns
         self.update_columns = update_columns if update_columns else non_key_columns
         self.sortable_columns = sortable_columns if sortable_columns else self.key_columns
+
+        if self.pkey_column not in self.list_columns:
+            pass
 
     def convert_item_id_to_model_type(
         self,
@@ -170,13 +177,12 @@ class AdminRouter:
         item_id: int | str,
     ) -> dict:
         async with self.sqlalchemy_session_maker() as session:
-            async with self.sqlalchemy_session_maker() as session:
-                return await crud.update_item(
-                    session=session,
-                    model=self.model,
-                    pkey_column=self.pkey_column,
-                    item_id=self.convert_item_id_to_model_type(item_id),
-                )
+            return await crud.update_item(
+                session=session,
+                model=self.model,
+                pkey_column=self.pkey_column,
+                item_id=self.convert_item_id_to_model_type(item_id),
+            )
 
     async def soft_delete_endpoint(
         self,
@@ -306,9 +312,7 @@ class AdminRouter:
 
         if AdminMethods.SOFT_DELETE:
             if not self.soft_delete_column:
-                raise Exception(
-                    f'To make soft delete for {self.model_title} model awailable set soft_delete_column params'
-                )
+                raise NoSoftDeleteField(model_id=self.model_id)
 
             self.router.delete(
                 path='/{item_id}/soft',

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from north_admin.crud import crud
 from north_admin.dto import ColumnDTO, ModelInfoDTO
 from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField
-from north_admin.helpers import set_origin_to_pydantic_schema
+from north_admin.helpers import generate_random_emoji, set_origin_to_pydantic_schema
 from north_admin.types import (
     AdminMethods,
     ColumnType,
@@ -20,6 +20,7 @@ from north_admin.types import (
 class AdminRouter:
     model: ModelType
     model_title: str
+    emoji: str
 
     router: APIRouter
     model_info: ModelInfoDTO
@@ -61,6 +62,7 @@ class AdminRouter:
         create_columns: list[ColumnType] | None = None,
         update_columns: list[ColumnType] | None = None,
         soft_delete_column: ColumnType | None = None,
+        emoji: str | None = None,
         sortable_columns: list[ColumnType] | None = None,
         excluded_columns: list[ColumnType] | None = None,
         filters: dict[
@@ -74,6 +76,7 @@ class AdminRouter:
         self.model = model
         self.model_id = str(self.model.__table__)
         self.model_title = model_title if model_title else self.model_id.capitalize()
+        self.emoji = emoji if emoji else generate_random_emoji()
 
         self.sqlalchemy_session_maker = sqlalchemy_session_maker
         self.router = APIRouter(
@@ -225,6 +228,7 @@ class AdminRouter:
     def setup_router(self) -> None:
         self.model_info = ModelInfoDTO(
             title=self.model_title,
+            emoji=self.emoji,
             columns={},
         )
 

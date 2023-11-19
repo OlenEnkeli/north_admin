@@ -77,6 +77,7 @@ class NorthAdmin:
         update_columns: list[ColumnType] | None = None,
         soft_delete_column: ColumnType | None = None,
         sortable_columns: list[ColumnType] | None = None,
+        emoji: str | None = None,
         filters: dict[
           str,
           tuple[
@@ -89,6 +90,7 @@ class NorthAdmin:
             model=model,
             sqlalchemy_session_maker=self.sqlalchemy_session_maker,
             model_title=model_title,
+            emoji=emoji,
             enabled_methods=enabled_methods,
             excluded_columns=excluded_columns,
             list_columns=list_columns,

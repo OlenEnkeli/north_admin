@@ -11,6 +11,7 @@ python = "3.12"
 sqlalchemy = "^2.0.23"
 fastapi = "^0.104.1"
 ruff = "^0.1.5"
+random-unicode-emoji = "^2.8"
 
 
 [tool.poetry.group.dev.dependencies]

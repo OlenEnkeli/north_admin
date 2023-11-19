@@ -16,4 +16,5 @@ class ColumnDTO(BaseModel):
 
 class ModelInfoDTO(BaseModel):
     title: str
+    emoji: str
     columns: dict[str, ColumnDTO]

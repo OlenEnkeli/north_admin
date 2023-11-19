@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool, Pool
 
 from north_admin.admin_router import AdminRouter
-from north_admin.dto import ModelInfoDTO
-from north_admin.types import AdminMethods, ColumnType, FilterType, ModelType
+from north_admin.dto import ModelInfoDTO, FilterGroupDTO
+from north_admin.types import AdminMethods, ColumnType, ModelType
 
 
 class NorthAdmin:
@@ -79,13 +79,7 @@ class NorthAdmin:
         sortable_columns: list[ColumnType] | None = None,
         pagination_size: int = 100,
         emoji: str | None = None,
-        filters: dict[
-          str,
-          tuple[
-              ColumnType,
-              FilterType,
-          ],
-        ] | None = None,
+        filters: list[FilterGroupDTO] | None = None,
     ) -> None:
         admin_router = AdminRouter(
             model=model,

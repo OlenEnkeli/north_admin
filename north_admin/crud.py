@@ -1,11 +1,12 @@
 from fastapi import HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, bindparam
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from north_admin.dto import FilterGroupDTO
 from north_admin.exceptions import NothingToUpdate
-from north_admin.types import ColumnType, ModelType, FilterType
+from north_admin.types import ColumnType, ModelType
 
 
 class CRUD:
@@ -120,13 +121,8 @@ class CRUD:
         pagination_size: int,
         sort_by: ColumnType | None,
         soft_deleted_included: bool,
-        filters: dict[
-            str,
-            tuple[
-                ColumnType,
-                FilterType,
-            ],
-        ],
+        filters: list[FilterGroupDTO] | None,
+        filters_values: dict[str, any] | None,
     ) -> tuple[int, list[ModelType]]:
         """
         :return: (total_amount: int, model: ModelType)
@@ -143,7 +139,25 @@ class CRUD:
         if not soft_deleted_included:
             query = query.filter(soft_delete_column.is_(True))
 
-        items = await session.scalars(query)
+        for current_filter in filters:
+            params = current_filter.query.compile().params
+            disable_filter: bool = False
+
+            for key, value in params.items():
+                if key not in filters_values.keys():
+                    disable_filter = True
+                    continue
+
+                if filters_values[key] is None:
+                    disable_filter = True
+
+            if disable_filter:
+                print(current_filter.query, 123)
+                continue
+
+            query = query.filter(current_filter.query)
+
+        items = await session.scalars(query, params=filters_values)
 
         query = select(func.count(pkey_column))
         total_amount = await session.scalar(query)

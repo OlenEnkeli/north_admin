@@ -1,11 +1,17 @@
 from datetime import datetime as dt
 
 from fastapi import FastAPI
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, bindparam, and_
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
-from north_admin import NorthAdmin, setup_admin
+from north_admin import (
+    NorthAdmin,
+    setup_admin,
+    FilterGroupDTO,
+    FieldAPIType,
+    FilterDTO,
+)
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -53,7 +59,34 @@ admin_app.add_admin_routes(
     list_columns=user_get_columns,
     update_columns=[User.email, User.fullname, User.is_active],
     create_columns=[User.email, User.fullname, User.is_active, User.password],
+    filters=[
+        FilterGroupDTO(
+            query=(
+                and_(
+                    # User.created_at > dt.now().replace(hour=0, minute=0, second=0),
+                    bindparam('created_today_param'),
+                    bindparam('created_today_param'),
+                )
+            ),
+            filters=[
+                FilterDTO(
+                    title='created_today_param',
+                    field_type=FieldAPIType.BOOLEAN,
+                ),
+            ],
+        ),
+        FilterGroupDTO(
+            query=(User.created_at > bindparam('created_after_gt')),
+            filters=[
+                FilterDTO(
+                    title='created_after_gt',
+                    field_type=FieldAPIType.DATETIME,
+                )
+            ],
+        ),
+    ]
 )
+
 setup_admin(
     app=app,
     admin_app=admin_app,

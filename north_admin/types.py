@@ -1,5 +1,6 @@
+from datetime import datetime as dt
 from enum import Enum
-from typing import Type
+from typing import Type, Self
 
 from sqlalchemy import Column
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
@@ -17,18 +18,47 @@ class AdminMethods(str, Enum):
     DELETE = 'delete'
 
 
-class FilterType(str, Enum):
-    CHECKBOX = 'checkbox'
-    GREATER_THEN = 'greater_then'
-    LESS_THEN = 'less_then'
-
-
 class FieldAPIType(str, Enum):
     INTEGER = 'integer'
+    BOOLEAN = 'boolean'
+    FLOAT = 'float'
     STRING = 'string'
     ENUM = 'enum'
     DATETIME = 'datetime'
     ARRAY = 'array'
+
+    def to_python_type(self) -> Type:
+        if self == FieldAPIType.INTEGER:
+            return int
+        elif self == FieldAPIType.BOOLEAN:
+            return bool
+        elif self == FieldAPIType.FLOAT:
+            return float
+        elif self == FieldAPIType.STRING:
+            return str
+        elif self == FieldAPIType.ENUM:
+            return Enum
+        elif self == FieldAPIType.DATETIME:
+            return dt
+        elif self == FieldAPIType.ARRAY:
+            return list
+
+    @classmethod
+    def from_python_type(cls, python_type: Type) -> Self:
+        if python_type == int:
+            return cls.INTEGER
+        if python_type == bool:
+            return cls.BOOLEAN
+        elif python_type == float:
+            return cls.FLOAT
+        elif python_type == Enum:
+            return cls.ENUM
+        elif python_type == list or python_type == tuple:
+            return cls.ARRAY
+        elif python_type == dt:
+            return cls.DATETIME
+        else:
+            return cls.STRING
 
 
 def sqlalchemy_column_to_pydantic(column: ColumnType) -> tuple[type, any]:

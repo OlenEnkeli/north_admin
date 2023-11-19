@@ -1,17 +1,18 @@
-from fastapi import APIRouter
-from pydantic import BaseModel, create_model
+from typing import Type
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, create_model, ValidationError
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from north_admin.crud import crud
-from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMTable
+from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMBase, FilterGroupDTO
 from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField
-from north_admin.helpers import generate_random_emoji, set_origin_to_pydantic_schema
+from north_admin.helpers import generate_random_emoji, set_origin_to_pydantic_schema, filters_dict
 from north_admin.types import (
     AdminMethods,
     ColumnType,
     FieldAPIType,
-    FilterType,
     ModelType,
     sqlalchemy_column_to_pydantic,
 )
@@ -35,6 +36,7 @@ class AdminRouter:
     get_schema: BaseModel | None
     list_schema_one: BaseModel | None
     list_schema: BaseModel | None
+    filters_schema: BaseModel | None
 
     enabled_methods: list[AdminMethods]
     excluded_columns: list[ColumnType] | None = None
@@ -44,13 +46,7 @@ class AdminRouter:
     update_columns: list[ColumnType]
     soft_delete_column: ColumnType | None
     sortable_columns: list[ColumnType]
-    filters: dict[
-         str,
-         tuple[
-             ColumnType,
-             FilterType,
-         ],
-    ] | None
+    filters: list[FilterGroupDTO] | None = None
 
     def __init__(
         self,
@@ -68,13 +64,7 @@ class AdminRouter:
         sortable_columns: list[ColumnType] | None = None,
         excluded_columns: list[ColumnType] | None = None,
         pagination_size: int = 100,
-        filters: dict[
-            str,
-            tuple[
-                ColumnType,
-                FilterType,
-            ],
-        ] | None = None,
+        filters: list[FilterGroupDTO] | None = None,
     ):
         self.model = model
         self.model_id = str(self.model.__table__)
@@ -94,8 +84,8 @@ class AdminRouter:
         self.update_schema = None
 
         self.enabled_methods = enabled_methods if enabled_methods else list(AdminMethods)
-        self.soft_delete_column = soft_delete_column
-        self.filters = filters
+        self.soft_delete_column = soft_delete_column if soft_delete_column else None
+        self.filters = filters if filters else []
         self.excluded_columns = excluded_columns if excluded_columns else []
 
         if pkey_column:
@@ -153,7 +143,18 @@ class AdminRouter:
         page: int = 1,
         sort_by: str | None = None,
         soft_deleted_included: bool = True,
+        filters: str = Depends(filters_dict),
     ) -> BaseModel:
+        parsed_filters: dict[str, any]
+
+        try:
+            parsed_filters = self.filters_schema.model_validate(filters).model_dump()
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=422,
+                detail=f'Can`t parse filters: {e}',
+            )
+
         async with self.sqlalchemy_session_maker() as session:
             total_amount, items = await crud.list_items(
                 session=session,
@@ -164,10 +165,11 @@ class AdminRouter:
                 page=page,
                 pagination_size=self.pagination_size,
                 sort_by=sort_by,
-                filters={},
+                filters=self.filters,
+                filters_values=parsed_filters,
             )
 
-            return self.list_schema(
+            return self.list_schema( # noqa
                 page=page,
                 pagination_size=self.pagination_size,
                 total_amount=total_amount,
@@ -248,7 +250,7 @@ class AdminRouter:
     ) -> BaseModel:
         return create_model(
             self.model_title,
-            __config__=ORMTable.model_config,
+            __config__=ORMBase.model_config,
             **kwargs,
         )
 
@@ -258,6 +260,7 @@ class AdminRouter:
             emoji=self.emoji,
             columns={},
             pkey_column=self.pkey_column.key,
+            filters=self.filters,
             soft_delete_column=self.soft_delete_column.key if self.soft_delete_column else None,
         )
 
@@ -273,7 +276,7 @@ class AdminRouter:
             pydantic_params = sqlalchemy_column_to_pydantic(column)
 
             self.model_info.columns[column.key] = ColumnDTO(
-                column_type=FieldAPIType.STRING,
+                column_type=FieldAPIType.from_python_type(pydantic_params[0]),
                 nullable=column.nullable,
                 is_get_available=(column in self.get_columns),
                 is_list_available=(column in self.list_columns),
@@ -305,6 +308,17 @@ class AdminRouter:
                     'items': (list[self.list_schema_one], ...),
                 }
             )
+
+            parsed_filters: dict[str, tuple[Type, any]] = {}
+
+            for current_filter_group in self.filters:
+                for current_filter in current_filter_group.filters:
+                    parsed_filters[current_filter.title] = (
+                        current_filter.field_type.to_python_type(),
+                        None,
+                    )
+
+            self.filters_schema = self.create_models(**parsed_filters)
 
             self.router.get(
                 path='/',

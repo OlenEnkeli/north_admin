@@ -1,6 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from north_admin.types import FieldAPIType
+
+
+class ORMTable(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ColumnDTO(BaseModel):
@@ -17,4 +21,6 @@ class ColumnDTO(BaseModel):
 class ModelInfoDTO(BaseModel):
     title: str
     emoji: str
+    pkey_column:  str
+    soft_delete_column: str | None = None
     columns: dict[str, ColumnDTO]

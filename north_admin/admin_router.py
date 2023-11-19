@@ -4,7 +4,7 @@ from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from north_admin.crud import crud
-from north_admin.dto import ColumnDTO, ModelInfoDTO
+from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMTable
 from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField
 from north_admin.helpers import generate_random_emoji, set_origin_to_pydantic_schema
 from north_admin.types import (
@@ -28,10 +28,12 @@ class AdminRouter:
     pkey_column: ColumnType
     key_columns: list[ColumnType]
     sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
+    pagination_size: int
 
     create_schema: BaseModel | None
     update_schema: BaseModel | None
     get_schema: BaseModel | None
+    list_schema_one: BaseModel | None
     list_schema: BaseModel | None
 
     enabled_methods: list[AdminMethods]
@@ -65,6 +67,7 @@ class AdminRouter:
         emoji: str | None = None,
         sortable_columns: list[ColumnType] | None = None,
         excluded_columns: list[ColumnType] | None = None,
+        pagination_size: int = 100,
         filters: dict[
             str,
             tuple[
@@ -77,6 +80,7 @@ class AdminRouter:
         self.model_id = str(self.model.__table__)
         self.model_title = model_title if model_title else self.model_id.capitalize()
         self.emoji = emoji if emoji else generate_random_emoji()
+        self.pagination_size = pagination_size
 
         self.sqlalchemy_session_maker = sqlalchemy_session_maker
         self.router = APIRouter(
@@ -85,7 +89,7 @@ class AdminRouter:
         )
 
         self.get_schema = None
-        self.list_schema = None
+        self.list_schema_one = None
         self.create_schema = None
         self.update_schema = None
 
@@ -146,8 +150,29 @@ class AdminRouter:
 
     async def list_endpoint(
         self,
+        page: int = 1,
+        sort_by: str | None = None,
+        soft_deleted_included: bool = True,
     ) -> BaseModel:
-        raise NotImplementedError
+        async with self.sqlalchemy_session_maker() as session:
+            total_amount, items = await crud.list_items(
+                session=session,
+                model=self.model,
+                pkey_column=self.pkey_column,
+                soft_deleted_included=soft_deleted_included,
+                soft_delete_column=self.soft_delete_column,
+                page=page,
+                pagination_size=self.pagination_size,
+                sort_by=sort_by,
+                filters={},
+            )
+
+            return self.list_schema(
+                page=page,
+                pagination_size=self.pagination_size,
+                total_amount=total_amount,
+                items=[self.list_schema_one.model_validate(item) for item in items],
+            )
 
     async def create_endpoint(
         self,
@@ -222,6 +247,7 @@ class AdminRouter:
     ) -> BaseModel:
         return create_model(
             self.model_title,
+            __config__=ORMTable.model_config,
             **kwargs,
         )
 
@@ -230,6 +256,8 @@ class AdminRouter:
             title=self.model_title,
             emoji=self.emoji,
             columns={},
+            pkey_column=self.pkey_column.key,
+            soft_delete_column=self.soft_delete_column.key if self.soft_delete_column else None,
         )
 
         create_schema_items: dict[str, tuple[type, any]] = {}
@@ -237,40 +265,48 @@ class AdminRouter:
         get_schema_items: dict[str, tuple[type, any]] = {}
         list_schema_items: dict[str, tuple[type, any]] = {}
 
-        for field in self.model_columns:
-            if field in self.excluded_columns:
+        for column in self.model_columns:
+            if column in self.excluded_columns:
                 continue
 
-            pydantic_params = sqlalchemy_column_to_pydantic(field)
+            pydantic_params = sqlalchemy_column_to_pydantic(column)
 
-            self.model_info.columns[field.key] = ColumnDTO(
+            self.model_info.columns[column.key] = ColumnDTO(
                 column_type=FieldAPIType.STRING,
-                nullable=field.nullable,
-                is_get_available=(field in self.get_columns),
-                is_list_available=(field in self.list_columns),
-                is_create_available=(field in self.create_columns),
-                is_update_available=(field in self.update_columns),
-                is_sortable=(field in self.sortable_columns),
+                nullable=column.nullable,
+                is_get_available=(column in self.get_columns),
+                is_list_available=(column in self.list_columns),
+                is_create_available=(column in self.create_columns),
+                is_update_available=(column in self.update_columns),
+                is_sortable=(column in self.sortable_columns),
             )
 
-            if AdminMethods.GET_ONE in self.enabled_methods and field in self.get_columns:
-                get_schema_items[field.key] = pydantic_params
+            if AdminMethods.GET_ONE in self.enabled_methods and column in self.get_columns:
+                get_schema_items[column.key] = pydantic_params
 
-            if AdminMethods.GET_LIST in self.enabled_methods and field in self.list_columns:
-                list_schema_items[field.key] = pydantic_params
+            if AdminMethods.GET_LIST in self.enabled_methods and column in self.list_columns:
+                list_schema_items[column.key] = pydantic_params
 
-            if AdminMethods.CREATE in self.enabled_methods and field in self.create_columns:
-                create_schema_items[field.key] = pydantic_params
+            if AdminMethods.CREATE in self.enabled_methods and column in self.create_columns:
+                create_schema_items[column.key] = pydantic_params
 
-            if AdminMethods.UPDATE in self.enabled_methods and field in self.update_columns:
-                update_schema_items[field.key] = pydantic_params
+            if AdminMethods.UPDATE in self.enabled_methods and column in self.update_columns:
+                update_schema_items[column.key] = pydantic_params
 
         if AdminMethods.GET_LIST:
-            self.list_schema = self.create_models(**list_schema_items)
+            self.list_schema_one = self.create_models(**list_schema_items)
+            self.list_schema = self.create_models(
+                **{
+                    'page': (int, ...),
+                    'pagination_size': (int, ...),
+                    'total_amount': (int, ...),
+                    'items': (list[self.list_schema_one], ...),
+                }
+            )
 
             self.router.get(
                 path='/',
-                response_model=self.get_schema,
+                response_model=self.list_schema,
             )(self.list_endpoint)
 
         if AdminMethods.GET_ONE:

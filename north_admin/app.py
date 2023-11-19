@@ -77,6 +77,7 @@ class NorthAdmin:
         update_columns: list[ColumnType] | None = None,
         soft_delete_column: ColumnType | None = None,
         sortable_columns: list[ColumnType] | None = None,
+        pagination_size: int = 100,
         emoji: str | None = None,
         filters: dict[
           str,
@@ -92,6 +93,7 @@ class NorthAdmin:
             model_title=model_title,
             emoji=emoji,
             enabled_methods=enabled_methods,
+            pagination_size=pagination_size,
             excluded_columns=excluded_columns,
             list_columns=list_columns,
             pkey_column=pkey_column,

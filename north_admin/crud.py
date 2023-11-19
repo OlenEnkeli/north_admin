@@ -5,7 +5,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from north_admin.exceptions import NothingToUpdate
-from north_admin.types import ColumnType, ModelType
+from north_admin.types import ColumnType, ModelType, FilterType
 
 
 class CRUD:
@@ -109,6 +109,33 @@ class CRUD:
             ) from e
 
         return {'success': 'ok'}
+
+    async def list_items(
+        self,
+        session: AsyncSession,
+        model: ModelType,
+        pkey_column: ColumnType,
+        soft_delete_column: ColumnType,
+        page: int,
+        pagination_size: int,
+        sort_by: str | None,
+        soft_deleted_included: bool,
+        filters: dict[
+            str,
+            tuple[
+                ColumnType,
+                FilterType,
+            ],
+        ],
+    ) -> tuple[int, list[ModelType]]:
+        """
+        :return: (total_amount: int, model: ModelType)
+        """
+
+        query = select(model)
+        items = await session.scalars(query)
+
+        return 100, items
 
 
 crud = CRUD()

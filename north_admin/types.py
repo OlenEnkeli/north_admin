@@ -1,9 +1,8 @@
-from typing import Type
 from enum import Enum
+from typing import Type
 
 from sqlalchemy import Column
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
-
 
 ModelType = Type[DeclarativeBase]
 ColumnType = Column | InstrumentedAttribute | None

@@ -1,19 +1,19 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, create_model
 from sqlalchemy import inspect
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from north_admin.crud import crud
-from north_admin.dto import ModelInfoDTO, ColumnDTO
+from north_admin.dto import ColumnDTO, ModelInfoDTO
 from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField
 from north_admin.helpers import set_origin_to_pydantic_schema
 from north_admin.types import (
-    ModelType,
     AdminMethods,
-    FilterType,
-    FieldAPIType,
-    sqlalchemy_column_to_pydantic,
     ColumnType,
+    FieldAPIType,
+    FilterType,
+    ModelType,
+    sqlalchemy_column_to_pydantic,
 )
 
 
@@ -95,9 +95,9 @@ class AdminRouter:
             self.pkey_column = pkey_column
         else:
             try:
-                self.pkey_column = getattr(self.model, 'id')
+                self.pkey_column = self.model.id
             except AttributeError:
-                raise NoDefinedPKException(model_id=self.model_id)
+                raise NoDefinedPKException(model_id=self.model_id) from None
 
         self.model_columns = inspect(model).columns.values()
 
@@ -144,8 +144,7 @@ class AdminRouter:
     async def list_endpoint(
         self,
     ) -> BaseModel:
-        async with self.sqlalchemy_session_maker() as session:
-            raise NotImplementedError
+        raise NotImplementedError
 
     async def create_endpoint(
         self,

@@ -1,11 +1,11 @@
+from fastapi import HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, DatabaseError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException
 
 from north_admin.exceptions import NothingToUpdate
-from north_admin.types import ModelType, ColumnType
+from north_admin.types import ColumnType, ModelType
 
 
 class CRUD:
@@ -43,7 +43,7 @@ class CRUD:
             raise HTTPException(
                 status_code=500,
                 detail=f'Can`t save item - {e}',
-            )
+            ) from e
 
         return item
 
@@ -81,7 +81,7 @@ class CRUD:
             raise HTTPException(
                 status_code=500,
                 detail=f'Can`t update item - {e}',
-            )
+            ) from e
 
         return item
 
@@ -106,7 +106,7 @@ class CRUD:
             raise HTTPException(
                 status_code=500,
                 detail=f'Can`t update item - {e}',
-            )
+            ) from e
 
         return {'success': 'ok'}
 

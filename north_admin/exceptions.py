@@ -20,4 +20,4 @@ class NoSoftDeleteField(NorthAdminException):
 
 class NothingToUpdate(NorthAdminException):
     def __init__(self, item_id: int | str, model_id: str):
-        self.error_text = f'Nothing to update at {item_id} item of {model} model'
+        self.error_text = f'Nothing to update at {item_id} item of {model_id} model'

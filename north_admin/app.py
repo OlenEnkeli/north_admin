@@ -1,16 +1,15 @@
-from fastapi import FastAPI, APIRouter
-
-from sqlalchemy.pool import Pool, NullPool
+from fastapi import APIRouter, FastAPI
 from sqlalchemy.ext.asyncio import (
-    async_sessionmaker,
-    create_async_engine,
     AsyncEngine,
     AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
 )
+from sqlalchemy.pool import NullPool, Pool
 
 from north_admin.admin_router import AdminRouter
 from north_admin.dto import ModelInfoDTO
-from north_admin.types import ModelType, AdminMethods, FilterType, ColumnType
+from north_admin.types import AdminMethods, ColumnType, FilterType, ModelType
 
 
 class NorthAdmin:

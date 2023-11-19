@@ -1,9 +1,9 @@
 from datetime import datetime as dt
 
 from fastapi import FastAPI
-from sqlalchemy import func, create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from north_admin import NorthAdmin, setup_admin
 
@@ -49,10 +49,10 @@ admin_app.add_admin_routes(
     model_title='Users',
     pkey_column=User.id,
     soft_delete_column=User.is_active,
-    get_columns=user_get_columns,  # noqa
-    list_columns=user_get_columns,  # noqa
-    update_columns=[User.email, User.fullname, User.is_active],  # noqa
-    create_columns=[User.email, User.fullname, User.is_active, User.password],  # noqa
+    get_columns=user_get_columns,
+    list_columns=user_get_columns,
+    update_columns=[User.email, User.fullname, User.is_active],
+    create_columns=[User.email, User.fullname, User.is_active, User.password],
 )
 setup_admin(
     app=app,

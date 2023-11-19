@@ -1,4 +1,4 @@
-from typing import Coroutine,  Callable
+from typing import Callable
 
 from pydantic import BaseModel
 

@@ -1,17 +1,15 @@
-from fastapi import FastAPI, APIRouter
-
-from sqlalchemy.pool import Pool, NullPool
+from fastapi import APIRouter, FastAPI
 from sqlalchemy.ext.asyncio import (
-    async_sessionmaker,
-    create_async_engine,
     AsyncEngine,
     AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
 )
-from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.pool import NullPool, Pool
 
 from north_admin.admin_router import AdminRouter
-from north_admin.dto import ModelInfoDTO
-from north_admin.types import ModelType, AdminMethods, FilterType
+from north_admin.dto import ModelInfoDTO, FilterGroupDTO
+from north_admin.types import AdminMethods, ColumnType, ModelType
 
 
 class NorthAdmin:
@@ -33,8 +31,8 @@ class NorthAdmin:
         sqlalchemy_pool_class: Pool = NullPool,
     ):
         self.router = APIRouter()
-        self.api_router = APIRouter(tags=['Admin API'])
-        self.frontend_router = APIRouter(tags=['Admin Frontend'])
+        self.api_router = APIRouter()
+        self.frontend_router = APIRouter()
 
         self.logo_url = logo_url
         self.models_info = {}
@@ -47,7 +45,6 @@ class NorthAdmin:
 
         self.sqlalchemy_engine = create_async_engine(
             sqlalchemy_uri,
-
             **sqlalchemy_engine_args,
         )
 
@@ -64,6 +61,7 @@ class NorthAdmin:
             path='/',
             response_model=dict[str, ModelInfoDTO],
             description='Info about admin API structure',
+            tags=['Admin info'],
         )(self.admin_info_route)
 
     def add_admin_routes(
@@ -71,34 +69,37 @@ class NorthAdmin:
         model: ModelType,
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
-        list_columns: list[InstrumentedAttribute] | None = None,
-        get_columns: list[InstrumentedAttribute] | None = None,
-        create_columns: list[InstrumentedAttribute] | None = None,
-        update_columns: list[InstrumentedAttribute] | None = None,
-        soft_delete_field: InstrumentedAttribute | None = None,
-        sortable_columns: list[InstrumentedAttribute] | None = None,
-        filters: dict[
-          str,
-          tuple[
-              InstrumentedAttribute,
-              FilterType,
-          ],
-        ] | None = None,
+        excluded_columns: list[ColumnType] | None = None,
+        pkey_column: ColumnType | None = None,
+        list_columns: list[ColumnType] | None = None,
+        get_columns: list[ColumnType] | None = None,
+        create_columns: list[ColumnType] | None = None,
+        update_columns: list[ColumnType] | None = None,
+        soft_delete_column: ColumnType | None = None,
+        sortable_columns: list[ColumnType] | None = None,
+        pagination_size: int = 100,
+        emoji: str | None = None,
+        filters: list[FilterGroupDTO] | None = None,
     ) -> None:
         admin_router = AdminRouter(
             model=model,
+            sqlalchemy_session_maker=self.sqlalchemy_session_maker,
             model_title=model_title,
+            emoji=emoji,
             enabled_methods=enabled_methods,
+            pagination_size=pagination_size,
+            excluded_columns=excluded_columns,
             list_columns=list_columns,
+            pkey_column=pkey_column,
             get_columns=get_columns,
             create_columns=create_columns,
             update_columns=update_columns,
-            soft_delete_field=soft_delete_field,
+            soft_delete_column=soft_delete_column,
             sortable_columns=sortable_columns,
             filters=filters,
         )
 
-        admin_router.init_routers()
+        admin_router.setup_router()
 
         self.models_info[admin_router.model_id] = admin_router.model_info
         self.setup_admin_info_route()

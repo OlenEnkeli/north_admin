@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -131,11 +131,20 @@ class CRUD:
         """
         :return: (total_amount: int, model: ModelType)
         """
+        offset = pagination_size * (page - 1)
 
-        query = select(model)
+        query = (
+            select(model)
+            .offset(offset)
+            .limit(pagination_size)
+        )
+
         items = await session.scalars(query)
 
-        return 100, items
+        query = select(func.count(pkey_column))
+        total_amount = await session.scalar(query)
+
+        return total_amount, list(items)
 
 
 crud = CRUD()

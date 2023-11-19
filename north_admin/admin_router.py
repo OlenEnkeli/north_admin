@@ -171,6 +171,7 @@ class AdminRouter:
                 page=page,
                 pagination_size=self.pagination_size,
                 total_amount=total_amount,
+                current_page_amount=len(items),
                 items=[self.list_schema_one.model_validate(item) for item in items],
             )
 
@@ -299,6 +300,7 @@ class AdminRouter:
                 **{
                     'page': (int, ...),
                     'pagination_size': (int, ...),
+                    'current_page_amount': (int, ...),
                     'total_amount': (int, ...),
                     'items': (list[self.list_schema_one], ...),
                 }

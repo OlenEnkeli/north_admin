@@ -118,7 +118,7 @@ class CRUD:
         soft_delete_column: ColumnType,
         page: int,
         pagination_size: int,
-        sort_by: str | None,
+        sort_by: ColumnType | None,
         soft_deleted_included: bool,
         filters: dict[
             str,
@@ -137,7 +137,11 @@ class CRUD:
             select(model)
             .offset(offset)
             .limit(pagination_size)
+            .order_by(sort_by if sort_by else pkey_column)
         )
+
+        if not soft_deleted_included:
+            query = query.filter(soft_delete_column.is_(True))
 
         items = await session.scalars(query)
 

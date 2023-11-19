@@ -1,10 +1,9 @@
 import json
 from json import JSONDecodeError
+from typing import Callable
 
-from typing import Callable, Type
-
+from fastapi import HTTPException, Query
 from pydantic import BaseModel
-from fastapi import Query, HTTPException
 from random_unicode_emoji import random_emoji
 
 

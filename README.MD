@@ -37,5 +37,3 @@ pip3 freezee -> requirements.txt
 ### Add NorthAdmin in projects
 
 For example, this is our Posts table:
-
-=======

@@ -1,4 +1,6 @@
 from fastapi import APIRouter, FastAPI
+from north_admin.admin_router import AdminRouter
+from north_admin.dto import ModelInfoDTO
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -6,10 +8,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import NullPool, Pool
-
-from north_admin.admin_router import AdminRouter
-from north_admin.dto import ModelInfoDTO, FilterGroupDTO
-from north_admin.types import AdminMethods, ColumnType, ModelType
 
 
 class NorthAdmin:
@@ -66,39 +64,9 @@ class NorthAdmin:
 
     def add_admin_routes(
         self,
-        model: ModelType,
-        model_title: str | None = None,
-        enabled_methods: list[AdminMethods] | None = None,
-        excluded_columns: list[ColumnType] | None = None,
-        pkey_column: ColumnType | None = None,
-        list_columns: list[ColumnType] | None = None,
-        get_columns: list[ColumnType] | None = None,
-        create_columns: list[ColumnType] | None = None,
-        update_columns: list[ColumnType] | None = None,
-        soft_delete_column: ColumnType | None = None,
-        sortable_columns: list[ColumnType] | None = None,
-        pagination_size: int = 100,
-        emoji: str | None = None,
-        filters: list[FilterGroupDTO] | None = None,
+        admin_router: AdminRouter,
     ) -> None:
-        admin_router = AdminRouter(
-            model=model,
-            sqlalchemy_session_maker=self.sqlalchemy_session_maker,
-            model_title=model_title,
-            emoji=emoji,
-            enabled_methods=enabled_methods,
-            pagination_size=pagination_size,
-            excluded_columns=excluded_columns,
-            list_columns=list_columns,
-            pkey_column=pkey_column,
-            get_columns=get_columns,
-            create_columns=create_columns,
-            update_columns=update_columns,
-            soft_delete_column=soft_delete_column,
-            sortable_columns=sortable_columns,
-            filters=filters,
-        )
-
+        admin_router.inject_sqlalchemy(sqlalchemy_session_maker=self.sqlalchemy_session_maker)
         admin_router.setup_router()
 
         self.models_info[admin_router.model_id] = admin_router.model_info

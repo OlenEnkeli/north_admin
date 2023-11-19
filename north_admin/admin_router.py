@@ -1,21 +1,22 @@
+from functools import reduce
 from typing import Type
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, create_model, ValidationError
-from sqlalchemy import inspect
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
 from north_admin.crud import crud
-from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMBase, FilterGroupDTO
-from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField
-from north_admin.helpers import generate_random_emoji, set_origin_to_pydantic_schema, filters_dict
+from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMBase
+from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField, PKeyMustBeInList
+from north_admin.filters import FilterGroup
+from north_admin.helpers import filters_dict, generate_random_emoji, set_origin_to_pydantic_schema
 from north_admin.types import (
     AdminMethods,
     ColumnType,
-    FieldAPIType,
+    FieldType,
     ModelType,
     sqlalchemy_column_to_pydantic,
 )
+from pydantic import BaseModel, ValidationError, create_model
+from sqlalchemy import inspect
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 
 class AdminRouter:
@@ -46,12 +47,11 @@ class AdminRouter:
     update_columns: list[ColumnType]
     soft_delete_column: ColumnType | None
     sortable_columns: list[ColumnType]
-    filters: list[FilterGroupDTO] | None = None
+    filters: list[FilterGroup] | None = None
 
     def __init__(
         self,
         model: ModelType,
-        sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
         pkey_column: ColumnType | None = None,
@@ -64,7 +64,7 @@ class AdminRouter:
         sortable_columns: list[ColumnType] | None = None,
         excluded_columns: list[ColumnType] | None = None,
         pagination_size: int = 100,
-        filters: list[FilterGroupDTO] | None = None,
+        filters: list[FilterGroup] | None = None,
     ):
         self.model = model
         self.model_id = str(self.model.__table__)
@@ -72,7 +72,6 @@ class AdminRouter:
         self.emoji = emoji if emoji else generate_random_emoji()
         self.pagination_size = pagination_size
 
-        self.sqlalchemy_session_maker = sqlalchemy_session_maker
         self.router = APIRouter(
             prefix=f'/{self.model_id}',
             tags=[self.model_title]
@@ -117,7 +116,13 @@ class AdminRouter:
         self.sortable_columns = sortable_columns if sortable_columns else self.key_columns
 
         if self.pkey_column not in self.list_columns:
-            pass
+            raise PKeyMustBeInList(self.model_id)
+
+    def inject_sqlalchemy(
+        self,
+        sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
+    ):
+        self.sqlalchemy_session_maker = sqlalchemy_session_maker
 
     def convert_item_id_to_model_type(
         self,
@@ -153,7 +158,7 @@ class AdminRouter:
             raise HTTPException(
                 status_code=422,
                 detail=f'Can`t parse filters: {e}',
-            )
+            ) from e
 
         async with self.sqlalchemy_session_maker() as session:
             total_amount, items = await crud.list_items(
@@ -260,7 +265,10 @@ class AdminRouter:
             emoji=self.emoji,
             columns={},
             pkey_column=self.pkey_column.key,
-            filters=self.filters,
+            filters=reduce(
+                lambda fg_left, fg_right: fg_left.filter_dto_list() + fg_right.filter_dto_list(),
+                self.filters,
+            ),
             soft_delete_column=self.soft_delete_column.key if self.soft_delete_column else None,
         )
 
@@ -276,7 +284,7 @@ class AdminRouter:
             pydantic_params = sqlalchemy_column_to_pydantic(column)
 
             self.model_info.columns[column.key] = ColumnDTO(
-                column_type=FieldAPIType.from_python_type(pydantic_params[0]),
+                column_type=FieldType.from_python_type(pydantic_params[0]),
                 nullable=column.nullable,
                 is_get_available=(column in self.get_columns),
                 is_list_available=(column in self.list_columns),
@@ -297,7 +305,7 @@ class AdminRouter:
             if AdminMethods.UPDATE in self.enabled_methods and column in self.update_columns:
                 update_schema_items[column.key] = pydantic_params
 
-        if AdminMethods.GET_LIST:
+        if AdminMethods.GET_LIST in self.enabled_methods:
             self.list_schema_one = self.create_models(**list_schema_items)
             self.list_schema = self.create_models(
                 **{
@@ -325,7 +333,7 @@ class AdminRouter:
                 response_model=self.list_schema,
             )(self.list_endpoint)
 
-        if AdminMethods.GET_ONE:
+        if AdminMethods.GET_ONE in self.enabled_methods:
             self.get_schema = self.create_models(**get_schema_items)
 
             self.router.get(
@@ -333,7 +341,7 @@ class AdminRouter:
                 response_model=self.get_schema,
             )(self.get_endpoint)
 
-        if AdminMethods.CREATE:
+        if AdminMethods.CREATE in self.enabled_methods:
             self.create_schema = self.create_models(**create_schema_items)
 
             decorated_endpoint = set_origin_to_pydantic_schema(
@@ -346,7 +354,7 @@ class AdminRouter:
                 response_model=self.get_schema,
             )(decorated_endpoint)
 
-        if AdminMethods.UPDATE:
+        if AdminMethods.UPDATE in self.enabled_methods:
             self.update_schema = self.create_models(**update_schema_items)
 
             decorated_endpoint = set_origin_to_pydantic_schema(
@@ -359,13 +367,13 @@ class AdminRouter:
                 response_model=self.get_schema,
             )(decorated_endpoint)
 
-        if AdminMethods.DELETE:
+        if AdminMethods.DELETE in self.enabled_methods:
             self.router.delete(
                 path='/{item_id}',
                 response_model=dict,
             )(self.delete_endpoint)
 
-        if AdminMethods.SOFT_DELETE:
+        if AdminMethods.SOFT_DELETE in self.enabled_methods:
             if not self.soft_delete_column:
                 raise NoSoftDeleteField(model_id=self.model_id)
 

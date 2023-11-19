@@ -1,12 +1,11 @@
 from fastapi import HTTPException
+from north_admin.exceptions import NothingToUpdate
+from north_admin.filters import FilterGroup
+from north_admin.types import ColumnType, ModelType
 from pydantic import BaseModel
-from sqlalchemy import select, func, bindparam
+from sqlalchemy import func, select
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from north_admin.dto import FilterGroupDTO
-from north_admin.exceptions import NothingToUpdate
-from north_admin.types import ColumnType, ModelType
 
 
 class CRUD:
@@ -121,7 +120,7 @@ class CRUD:
         pagination_size: int,
         sort_by: ColumnType | None,
         soft_deleted_included: bool,
-        filters: list[FilterGroupDTO] | None,
+        filters: list[FilterGroup] | None,
         filters_values: dict[str, any] | None,
     ) -> tuple[int, list[ModelType]]:
         """
@@ -143,7 +142,7 @@ class CRUD:
             params = current_filter.query.compile().params
             disable_filter: bool = False
 
-            for key, value in params.items():
+            for key, _ in params.items():
                 if key not in filters_values.keys():
                     disable_filter = True
                     continue

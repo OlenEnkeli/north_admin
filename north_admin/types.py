@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 from enum import Enum
-from typing import Type, Self
+from typing import Self, Type
 
 from sqlalchemy import Column
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
@@ -18,7 +18,7 @@ class AdminMethods(str, Enum):
     DELETE = 'delete'
 
 
-class FieldAPIType(str, Enum):
+class FieldType(str, Enum):
     INTEGER = 'integer'
     BOOLEAN = 'boolean'
     FLOAT = 'float'
@@ -28,19 +28,19 @@ class FieldAPIType(str, Enum):
     ARRAY = 'array'
 
     def to_python_type(self) -> Type:
-        if self == FieldAPIType.INTEGER:
+        if self == FieldType.INTEGER:
             return int
-        elif self == FieldAPIType.BOOLEAN:
+        elif self == FieldType.BOOLEAN:
             return bool
-        elif self == FieldAPIType.FLOAT:
+        elif self == FieldType.FLOAT:
             return float
-        elif self == FieldAPIType.STRING:
+        elif self == FieldType.STRING:
             return str
-        elif self == FieldAPIType.ENUM:
+        elif self == FieldType.ENUM:
             return Enum
-        elif self == FieldAPIType.DATETIME:
+        elif self == FieldType.DATETIME:
             return dt
-        elif self == FieldAPIType.ARRAY:
+        elif self == FieldType.ARRAY:
             return list
 
     @classmethod

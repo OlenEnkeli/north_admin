@@ -21,3 +21,8 @@ class NoSoftDeleteField(NorthAdminException):
 class NothingToUpdate(NorthAdminException):
     def __init__(self, item_id: int | str, model_id: str):
         self.error_text = f'Nothing to update at {item_id} item of {model_id} model'
+
+
+class PKeyMustBeInList(NorthAdminException):
+    def __init__(self, model_id: str):
+        self.error_text = f'PKey field must be in list endpoint of {model_id}'

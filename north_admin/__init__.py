@@ -1,13 +1,16 @@
-from .app import AdminMethods, NorthAdmin, setup_admin
-from .dto import FilterGroupDTO, FilterDTO
-from .types import FieldAPIType
-
+from .admin_router import AdminRouter
+from .app import NorthAdmin, setup_admin
+from .dto import FilterDTO
+from .types import AdminMethods, FieldType
+from .filters import FilterGroup, Filter
 
 __all__ = [
+    'AdminMethods',
+    'AdminRouter',
     'NorthAdmin',
     'setup_admin',
-    'AdminMethods',
     'FilterDTO',
-    'FilterGroupDTO',
-    'FieldAPIType',
+    'FieldType',
+    'Filter',
+    'FilterGroup',
 ]

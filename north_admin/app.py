@@ -1,6 +1,6 @@
+from typing import Type
+
 from fastapi import APIRouter, FastAPI
-from north_admin.admin_router import AdminRouter
-from north_admin.dto import ModelInfoDTO
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -8,6 +8,12 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import NullPool, Pool
+from fastapi.middleware.cors import CORSMiddleware
+
+from north_admin.admin_router import AdminRouter
+from north_admin.dto import ModelInfoDTO, JWTTokens
+from north_admin.auth_provider import AuthProvider
+
 
 
 class NorthAdmin:
@@ -20,10 +26,14 @@ class NorthAdmin:
 
     sqlalchemy_engine: AsyncEngine
     sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
+    jwt_secket_key: str
+    auth_provider: AuthProvider
 
     def __init__(
         self,
         sqlalchemy_uri: str,
+        jwt_secket_key: str,
+        auth_provider: Type[AuthProvider],
         logo_url: str | None = None,
         sqlalchemy_pool_size: int | None = None,
         sqlalchemy_pool_class: Pool = NullPool,
@@ -32,6 +42,7 @@ class NorthAdmin:
         self.api_router = APIRouter()
         self.frontend_router = APIRouter()
 
+        self.jwt_secket_key = jwt_secket_key
         self.logo_url = logo_url
         self.models_info = {}
 
@@ -51,6 +62,11 @@ class NorthAdmin:
             expire_on_commit=False,
         )
 
+        self.auth_provider = auth_provider(
+            jwt_secret_key=jwt_secket_key,
+            sqlalchemy_session_maker=self.sqlalchemy_session_maker,
+        )
+
     async def admin_info_route(self) -> dict[str, ModelInfoDTO]:
         return self.models_info
 
@@ -62,11 +78,29 @@ class NorthAdmin:
             tags=['Admin info'],
         )(self.admin_info_route)
 
+    def setup_admin_auth_route(self) -> None:
+        self.api_router.post(
+            path='/login',
+            response_model=JWTTokens,
+            tags=['Auth'],
+            description='Admin login method',
+        )(self.auth_provider.login_endpoint)
+
+        self.api_router.post(
+            path='/token',
+            response_model=JWTTokens,
+            tags=['Auth'],
+            description='Admin login method (service)',
+        )(self.auth_provider.token_endpoint)
+
     def add_admin_routes(
         self,
         admin_router: AdminRouter,
     ) -> None:
-        admin_router.inject_sqlalchemy(sqlalchemy_session_maker=self.sqlalchemy_session_maker)
+        admin_router.inject(
+            sqlalchemy_session_maker=self.sqlalchemy_session_maker,
+            auth_provider=self.auth_provider,
+        )
         admin_router.setup_router()
 
         self.models_info[admin_router.model_id] = admin_router.model_info
@@ -75,6 +109,7 @@ class NorthAdmin:
         self.api_router.include_router(admin_router.router)
 
     def setup_router(self) -> None:
+        self.setup_admin_auth_route()
         self.router.include_router(router=self.frontend_router)
         self.router.include_router(
             router=self.api_router,
@@ -93,3 +128,12 @@ def setup_admin(
         prefix=admin_prefix,
         router=admin_app.router,
     )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=['*'],
+        allow_credentials=True,
+        allow_methods=['*'],
+        allow_headers=['*'],
+    )
+

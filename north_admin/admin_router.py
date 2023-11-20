@@ -2,6 +2,8 @@ from functools import reduce
 from typing import Type
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from north_admin.auth_provider import AuthProvider
 from north_admin.crud import crud
 from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMBase
 from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField, PKeyMustBeInList
@@ -20,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 
 class AdminRouter:
+    auth_provider: AuthProvider
     model: ModelType
     model_title: str
     emoji: str
@@ -72,11 +75,6 @@ class AdminRouter:
         self.emoji = emoji if emoji else generate_random_emoji()
         self.pagination_size = pagination_size
 
-        self.router = APIRouter(
-            prefix=f'/{self.model_id}',
-            tags=[self.model_title]
-        )
-
         self.get_schema = None
         self.list_schema_one = None
         self.create_schema = None
@@ -118,11 +116,19 @@ class AdminRouter:
         if self.pkey_column not in self.list_columns:
             raise PKeyMustBeInList(self.model_id)
 
-    def inject_sqlalchemy(
+    def inject(
         self,
         sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
+        auth_provider: AuthProvider,
     ):
         self.sqlalchemy_session_maker = sqlalchemy_session_maker
+        self.auth_provider = auth_provider
+
+        self.router = APIRouter(
+            prefix=f'/{self.model_id}',
+            tags=[self.model_title],
+            dependencies=[Depends(self.auth_provider.get_auth_user)]
+        )
 
     def convert_item_id_to_model_type(
         self,

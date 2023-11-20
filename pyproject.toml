@@ -13,6 +13,8 @@ fastapi = "^0.104.1"
 ruff = "^0.1.5"
 random-unicode-emoji = "^2.8"
 greenlet = "^3.0.1"
+pyjwt = "^2.8.0"
+python-multipart = "^0.0.6"
 
 
 [tool.poetry.group.dev.dependencies]

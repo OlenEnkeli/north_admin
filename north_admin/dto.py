@@ -11,6 +11,16 @@ class DTOBase(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
+class JWTTokens(ORMBase):
+    access_token: str
+    refresh_token: str
+
+
+class UserLoginSchema(ORMBase):
+    login: str
+    password: str
+
+
 class ColumnDTO(DTOBase):
     column_type: FieldType
     nullable: bool

@@ -5,7 +5,6 @@ from typing import Self, Type
 from sqlalchemy import Column
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
 
-
 ModelType = Type[DeclarativeBase]
 ColumnType = Column | InstrumentedAttribute | None
 

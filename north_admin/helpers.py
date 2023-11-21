@@ -1,5 +1,4 @@
 import json
-
 from datetime import datetime as dt
 from json import JSONDecodeError
 from typing import Callable

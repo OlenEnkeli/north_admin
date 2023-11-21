@@ -2,15 +2,13 @@ from datetime import datetime as dt
 from typing import Annotated
 
 import jwt
-from fastapi import HTTPException, Depends
+
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
 from north_admin.dto import JWTTokens, UserLoginSchema
 from north_admin.helpers import dt_to_int
 from north_admin.types import ModelType
-
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/admin/api/token')
 
@@ -35,14 +33,14 @@ class AuthProvider:
         login: str,
         password: str,
     ) -> ModelType | None:
-        raise NotImplemented('Must by implemented in child class')
+        raise NotImplementedError('Must by implemented in child class')
 
     async def get_user_by_id(
         self,
         session: AsyncSession,
         user_id: int | str,
     ) -> ModelType | None:
-        raise NotImplemented('Must by implemented in child class')
+        raise NotImplementedError('Must by implemented in child class')
 
     async def login_endpoint(
         self,

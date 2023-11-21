@@ -2,7 +2,6 @@ from functools import reduce
 from typing import Type
 
 from fastapi import APIRouter, Depends, HTTPException
-
 from north_admin.auth_provider import AuthProvider
 from north_admin.crud import crud
 from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMBase
@@ -55,6 +54,7 @@ class AdminRouter:
     def __init__(
         self,
         model: ModelType,
+        emoji: str | None = None,
         model_title: str | None = None,
         enabled_methods: list[AdminMethods] | None = None,
         pkey_column: ColumnType | None = None,
@@ -63,7 +63,6 @@ class AdminRouter:
         create_columns: list[ColumnType] | None = None,
         update_columns: list[ColumnType] | None = None,
         soft_delete_column: ColumnType | None = None,
-        emoji: str | None = None,
         sortable_columns: list[ColumnType] | None = None,
         excluded_columns: list[ColumnType] | None = None,
         pagination_size: int = 100,

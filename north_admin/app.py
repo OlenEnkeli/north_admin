@@ -1,6 +1,10 @@
 from typing import Type
 
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from north_admin.admin_router import AdminRouter
+from north_admin.auth_provider import AuthProvider
+from north_admin.dto import JWTTokens, ModelInfoDTO
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -8,12 +12,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import NullPool, Pool
-from fastapi.middleware.cors import CORSMiddleware
-
-from north_admin.admin_router import AdminRouter
-from north_admin.dto import ModelInfoDTO, JWTTokens
-from north_admin.auth_provider import AuthProvider
-
 
 
 class NorthAdmin:

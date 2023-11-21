@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "north_admin"
-version = "0.1.1"
-description = ""
+version = "0.1.2"
+description = "Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pre-render Swelte UI"
 authors = ["Anton Nikolskiy <a.nikolskiy@tyver.io>"]
 license = "GNU GENERAL PUBLIC LICENSE"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">3.11"
+python = ">=3.11"
 sqlalchemy = "^2.0.23"
 fastapi = "^0.104.1"
 ruff = "^0.1.5"

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "north_admin"
-version = "0.0.1"
+version = "0.1.0"
 description = ""
 authors = ["Anton Nikolskiy <a.nikolskiy@tyver.io>"]
 license = "GNU GENERAL PUBLIC LICENSE"

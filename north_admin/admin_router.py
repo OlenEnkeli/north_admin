@@ -164,7 +164,6 @@ class AdminRouter:
                 status_code=422,
                 detail=f'Can`t parse filters: {e}',
             ) from e
-
         async with self.sqlalchemy_session_maker() as session:
             total_amount, items = await crud.list_items(
                 session=session,
@@ -326,7 +325,7 @@ class AdminRouter:
 
             for current_filter_group in self.filters:
                 for current_filter in current_filter_group.filters:
-                    parsed_filters[current_filter.title] = (
+                    parsed_filters[current_filter.bindparam] = (
                         current_filter.field_type.to_python_type(),
                         None,
                     )

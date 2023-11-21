@@ -139,21 +139,19 @@ class CRUD:
             query = query.filter(soft_delete_column.is_(True))
 
         for current_filter in filters:
+            print(current_filter.query)
             params = current_filter.query.compile().params
             disable_filter: bool = False
 
             for key, _ in params.items():
                 if key not in filters_values.keys():
-                    disable_filter = True
                     continue
 
                 if filters_values[key] is None:
                     disable_filter = True
 
             if disable_filter:
-                print(current_filter.query, 123)
                 continue
-
             query = query.filter(current_filter.query)
 
         items = await session.scalars(query, params=filters_values)

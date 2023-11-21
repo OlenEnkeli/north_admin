@@ -7,12 +7,15 @@ from sqlalchemy.orm import Query
 class Filter:
     title: str
     field_type: FieldType
+    bindparam: str
 
     def __init__(
         self,
         title: str,
         field_type: FieldType,
+        bindparam: str,
     ):
+        self.bindparam = bindparam
         self.title = title
         self.field_type = field_type
 

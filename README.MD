@@ -6,7 +6,7 @@ Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pr
 ## Requirements
 
  - Python 3.12+
- - NorthAdmin is based on latest [FastAPI](https://github.com/tiangolo/fastapi) and [SQLAlclhemy](https://github.com/sqlalchemy/sqlalchemy)
+- [FastAPI](https://github.com/tiangolo/fastapi) and [SQLAlclhemy](https://github.com/sqlalchemy/sqlalchemy)
  - Any async DB driver like [AsyncPG](https://github.com/MagicStack/asyncpg)
  - Any ASGI Python server like [Uvicorn](https://github.com/encode/uvicorn)
 

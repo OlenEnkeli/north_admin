@@ -1,10 +1,10 @@
 import json
+from datetime import datetime as dt
 from json import JSONDecodeError
+from typing import Callable
 
-from typing import Callable, Type
-
+from fastapi import HTTPException, Query
 from pydantic import BaseModel
-from fastapi import Query, HTTPException
 from random_unicode_emoji import random_emoji
 
 
@@ -25,3 +25,7 @@ def filters_dict(filters: str = Query(...)):
             status_code=422,
             detail=f'Invalida json in filters params: {e}'
         ) from e
+
+
+def dt_to_int(datetime: dt):
+    return int(datetime.timestamp())

@@ -1,8 +1,6 @@
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BinaryExpression, BooleanClauseList
-from sqlalchemy.orm import Query
 
-from north_admin.types import FieldAPIType
+from north_admin.types import FieldType
+from pydantic import BaseModel, ConfigDict
 
 
 class ORMBase(BaseModel):
@@ -13,18 +11,18 @@ class DTOBase(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-class FilterDTO(DTOBase):
-    title: str
-    field_type: FieldAPIType
+class JWTTokens(ORMBase):
+    access_token: str
+    refresh_token: str
 
 
-class FilterGroupDTO(DTOBase):
-    query: Query | BinaryExpression | BooleanClauseList
-    filters: list[FilterDTO]
+class UserLoginSchema(ORMBase):
+    login: str
+    password: str
 
 
 class ColumnDTO(DTOBase):
-    column_type: FieldAPIType
+    column_type: FieldType
     nullable: bool
 
     is_get_available: bool
@@ -34,10 +32,15 @@ class ColumnDTO(DTOBase):
     is_sortable: bool
 
 
+class FilterDTO(DTOBase):
+    title: str
+    field_type: FieldType
+
+
 class ModelInfoDTO(DTOBase):
     title: str
     emoji: str
     pkey_column:  str
     soft_delete_column: str | None = None
-    filters: list[FilterGroupDTO]
+    filters: list[FilterDTO]
     columns: dict[str, ColumnDTO]

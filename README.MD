@@ -46,6 +46,8 @@ pip3 freezee -> requirements.txt
 For example, this is our `User` table (`app/models/user.py`):
 
 ```python
+from datetime import datetime as dt
+
 from app.core.db import Base
 
 
@@ -61,10 +63,34 @@ class User(Base):
     created_at: Mapped[dt] = mapped_column(default=dt.now, server_default=func.current_timestamp())
 ```
 
+And `Post` table (`app/models/post.py`)
+
+```python
+from datetime import datetime as dt
+
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.dialects.postgresql import ARRAY
+
+from app.core.db import Base
+
+
+
+class Post(Base):
+    __tablename__ = 'posts'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
+    tags: Mapped[list[int]] = mapped_column(ARRAY(String), nullable=True)
+    text: Mapped[str] = mapped_column(nullable=False)
+    is_published: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[dt] = mapped_column(default=dt.now, server_default=func.current_timestamp())
+```
+
 Suppose we need the ability:
  - to view a list of users
  - to get detailed information about each of them
  - soft delete (block) them
+ - Create, view, get_list, update, delete and soft delete a posts
 
 So, here an out `app/admin.py` file:
 
@@ -85,6 +111,7 @@ from north_admin import (
 from north_admin.types import ModelType
 
 from app.models.user import User
+from app.models.post import Post
 
 
 class AdminAuthProvider(AuthProvider):
@@ -163,6 +190,13 @@ admin_app.add_admin_routes(
     )
 )
 
+admin_app.add_admin_routes(
+    model=Post,
+    model_title='Posts',
+    pkey_column=Post.id,
+    soft_delete_column=Post.is_published,
+)
+
 ```
 
 And also we need to setup admin panel in FastAPI main file (e.q. `app/app.py`)
@@ -194,10 +228,10 @@ Let`s take a look at parameters:
  - `emoji` - Emoji displayed near to model name in UI. By default - random emoji.
  - `enabled_methods` - List of actions, awailable in admin panel (`GET_LIST`, `GET_ONE`, `CREATE`, `UPDATE`, `DELETE`, `SOFT_DELETE`). By default all ot them.
  - `pkey_column` - Primary Key column. By default `model.id`
- - `list_columns` - Columns displayed when displaying a list of `model` items in UI. By default - all non-key fields. 
- - `get_columns` - Similary for viewing one item. By default - all non-key field.
- - `create_columns` - Similary for creatine new item. By default - all non-key field.
- - `update_columns` - Similary for updatings existing item. By default - all non-key field.
+ - `list_columns` - Columns displayed when displaying a list of `model` items in UI. By default - all columns. 
+ - `get_columns` - Similary for viewing one item. By default - all columns.
+ - `create_columns` - Similary for creatine new item. By default - all non-key columns.
+ - `update_columns` - Similary for updatings existing item. By default - all non-key columns.
  - `soft_delete_column` - Boolean SQLAlchemy column. When soft deleting (blocking) item, it set to `False`, is restoring to `True`. **Required**, if you have `SOFT_DELETE` in `enabled_methods`
  - `sortable_columns` - List of SQLAclehmy columns, A list of columns to which we can apply sorting in the UI. By default - all key column. (See `sort_by` params in list method)
  - `filters` - list of `FilterGroup` object. By default no filters applied.

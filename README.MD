@@ -1,6 +1,6 @@
-# FastAPI Easy Admin
+# NorthAdmin
 
-Easy-to-setup FastAPI Admin Panel using SQLAlchemy + AsyncPG
+Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pre-render Swelte UI.
 
 
 ## Requirements
@@ -9,6 +9,13 @@ Easy-to-setup FastAPI Admin Panel using SQLAlchemy + AsyncPG
  - NorthAdmin is based on latest [FastAPI](https://github.com/tiangolo/fastapi) and [SQLAlclhemy](https://github.com/sqlalchemy/sqlalchemy)
  - Any async DB driver like [AsyncPG](https://github.com/MagicStack/asyncpg)
  - Any ASGI Python server like [Uvicorn](https://github.com/encode/uvicorn)
+
+## Key benefits
+
+ - **Easy to integrate** - The amount of code that needs to be completed for the integration of the admin panel is minimal.
+ - **Fast** - NorthAdmin using async DB drivers and Swelte as UI framework to make admin panel as fast as possible.
+ - **PWA** - Similar solutions are offered by SSR, which is slower, less convenient and creates additional load on the server.
+ - **Flexibility** - We can create almost any filters to expand the functionality of the admin panel.
 
 ## Example
 

@@ -2,8 +2,13 @@
 
 Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pre-render Swelte UI.
 
+***
 
 [PyPI](https://pypi.org/project/north_admin/) | [GitHub](https://github.com/OlenEnkeli/north_admin) | [Example App](https://github.com/OlenEnkeli/north_admin_testapp) | [Frontend](https://github.com/OlenEnkeli/north_admin_frontend)
+
+**This is beta-version and frontend part (UI) currenly is in development**
+
+**Now in NorthAdmin available only backend/API part**
 
 ## Requirements
 

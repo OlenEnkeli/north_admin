@@ -8,9 +8,9 @@ ___
 
 ___
 
-**This is beta-version and frontend part (UI) currenly is in development**
+**This is beta-version and frontend part (UI) currenly is in development.**
 
-**Now in NorthAdmin available only backend/API part**
+**Now in NorthAdmin available only backend/API part,**
 
 ## Requirements
 

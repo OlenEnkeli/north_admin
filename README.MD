@@ -2,6 +2,9 @@
 
 Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pre-render Swelte UI.
 
+---
+
+[PyPI](https://pypi.org/project/north_admin/) | [GitHub](https://github.com/OlenEnkeli/north_admin) | [Example App](https://github.com/OlenEnkeli/north_admin_testapp) | [Frontend](https://github.com/OlenEnkeli/north_admin_frontend)
 
 ## Requirements
 
@@ -43,14 +46,9 @@ pip3 freezee -> requirements.txt
 
 ### Add NorthAdmin in projects
 
-For example, this is our `User` table (`app/models/user.py`):
+For example, this is our `User` table look like:
 
 ```python
-from datetime import datetime as dt
-
-from app.core.db import Base
-
-
 class User(Base):
     __tablename__ = 'users'
 
@@ -63,42 +61,28 @@ class User(Base):
     created_at: Mapped[dt] = mapped_column(default=dt.now, server_default=func.current_timestamp())
 ```
 
-And `Post` table (`app/models/post.py`)
-
-```python
-from datetime import datetime as dt
-
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import ARRAY
-
-from app.core.db import Base
-
-
-
-class Post(Base):
-    __tablename__ = 'posts'
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
-    tags: Mapped[list[int]] = mapped_column(ARRAY(String), nullable=True)
-    text: Mapped[str] = mapped_column(nullable=False)
-    is_published: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[dt] = mapped_column(default=dt.now, server_default=func.current_timestamp())
-```
 
 Suppose we need the ability:
- - to view a list of users
- - to get detailed information about each of them
- - soft delete (block) them
- - Create, view, get_list, update, delete and soft delete a posts
+ - To view a list of users
+ - To get detailed information about each of them
+ - Soft delete (block) them
+ - We can do it only with non-admin users (User.user_type == UserType.user)
 
-So, here an out `app/admin.py` file:
+**This is an artificial one-line example.**
+
+If you need a more complete production-ready example, see [NorthAdmin Test App](https://github.com/OlenEnkeli/north_admin_testapp)
+
+So, here an out `admin.py` file:
 
 ```python
 from datetime import datetime as dt
+from enum import Enum
 
-from sqlalchemy import bindparam, and_, select
+from fastapi import FastAPI
+from sqlalchemy import bindparam, and_, select, func
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import ENUM
 from north_admin import (
     NorthAdmin,
     FilterGroup,
@@ -107,11 +91,30 @@ from north_admin import (
     AdminRouter,
     AdminMethods,
     AuthProvider,
+    setup_admin,
 )
-from north_admin.types import ModelType
+from north_admin.types import ModelType, QueryType
 
-from app.models.user import User
-from app.models.post import Post
+
+class Base(DeclarativeBase):
+    pass
+
+
+class UserType(str, Enum):
+    USER = 'user'
+    ADMIN = 'admin'
+
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(unique=True, nullable=False, index=True)
+    password: Mapped[str] = mapped_column(nullable=False)
+    fullname: Mapped[str] = mapped_column(nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    user_type: Mapped[UserType] = mapped_column(ENUM(UserType, name='user_type'), default=UserType.USER)
+    created_at: Mapped[dt] = mapped_column(default=dt.now, server_default=func.current_timestamp())
 
 
 class AdminAuthProvider(AuthProvider):
@@ -124,7 +127,7 @@ class AdminAuthProvider(AuthProvider):
         query = (
             select(User)
             .filter(User.email == login)
-            .filter(User.is_admin.is_(True))
+            .filter(User.user_type == UserType.ADMIN)
         )
 
         return await session.scalar(query)
@@ -137,7 +140,7 @@ class AdminAuthProvider(AuthProvider):
         query = (
             select(User)
             .filter(User.id == user_id)
-            .filter(User.is_admin.is_(True))
+            .filter(User.user_type == UserType.ADMIN)
         )
 
         return await session.scalar(query)
@@ -149,13 +152,30 @@ admin_app = NorthAdmin(
     auth_provider=AdminAuthProvider,
 )
 
-user_get_columns = [User.id, User.email, User.fullname, User.is_active, User.created_at]
+user_get_columns = [
+    User.id,
+    User.email,
+    User.fullname,
+    User.user_type,
+    User.created_at,
+]
+
+
+def exclude_admin_users(query: QueryType) -> QueryType:
+    query = query.filter(User.user_type != UserType.ADMIN)
+    return query
+
 
 admin_app.add_admin_routes(
     AdminRouter(
         model=User,
         model_title='Users',
-        enabled_methods=[AdminMethods.GET_ONE, AdminMethods.GET_LIST, AdminMethods.SOFT_DELETE],
+        enabled_methods=[
+            AdminMethods.GET_ONE,
+            AdminMethods.GET_LIST,
+            AdminMethods.SOFT_DELETE,
+        ],
+        process_query_method=exclude_admin_users,
         pkey_column=User.id,
         soft_delete_column=User.is_active,
         get_columns=user_get_columns,
@@ -190,27 +210,45 @@ admin_app.add_admin_routes(
     )
 )
 
-admin_app.add_admin_routes(
-    model=Post,
-    model_title='Posts',
-    pkey_column=Post.id,
-    soft_delete_column=Post.is_published,
-)
-
-```
-
-And also we need to setup admin panel in FastAPI main file (e.q. `app/app.py`)
-
-```python
-from north_admin import setup_admin
-
-from app.admin import admin_app
-
+app = FastAPI()
 
 setup_admin(
-    app=app,
     admin_app=admin_app,
+    app=app,
 )
+```
+
+Don't forget to use `Alembic` or other migration tools or `DeclarativeBase.Meta.create_all()` to create `User` table in DB
+
+Short Example with psycopg:
+
+Add this in the end of `admin.py`:
+
+```python
+if __name__ == '__main__':
+    from sqlalchemy import create_engine
+
+
+    Base.metadata.create_all(
+        bind=create_engine(
+            'postgresql+psycopg://postgres:@127.10.0.1:5432/north_admin_test_app'
+        ),
+    )
+```
+
+Install pscyopg and run it:
+
+```bash
+poetry add psycopg psycopg-binary
+python3 -m admin
+```
+
+
+
+**Now we finally can run it**:
+
+```bash
+poetry run uvicorn north_admin.test_app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Let's take a look at what's going on here
@@ -226,7 +264,8 @@ Let`s take a look at parameters:
  - `model` - SQLAlchemy model we want to administrate (**required**)
  - `model_title` - Verbose title (displayed in UI). By default generate from `model`
  - `emoji` - Emoji displayed near to model name in UI. By default - random emoji.
- - `enabled_methods` - List of actions, awailable in admin panel (`GET_LIST`, `GET_ONE`, `CREATE`, `UPDATE`, `DELETE`, `SOFT_DELETE`). By default all ot them.
+ - `enabled_methods` - List of actions, awailable in admin panel (`GET_LIST`, `GET_ONE`, `CREATE`, `UPDATE`, `DELETE`, `SOFT_DELETE`). By default - all ot them.
+ - `process_query_method` - Function applied to SQLAlchemy query in (`GET_LIST`, `GET_ONE`, `UPDATE`, `DELETE`, `SOFT_DELETE`) methods. Feel free to excluding, filtering, etc.
  - `pkey_column` - Primary Key column. By default `model.id`
  - `list_columns` - Columns displayed when displaying a list of `model` items in UI. By default - all columns. 
  - `get_columns` - Similary for viewing one item. By default - all columns.
@@ -267,4 +306,4 @@ E.q. we running app with Uvicorn on http://127.0.0.1 we have:
  - Admin Panel API in http://127.0.0.1/admin/api/
  - Swagger in http://127.0.0.1/admin/docs/
 
-Create user with `is_admin=True` flag, check out Swagger and **enjoy using your new admin panel**.
+Create user with `user_type=UserType.Admin`, check out Swagger and **enjoy using your new admin panel**.

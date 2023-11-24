@@ -40,6 +40,7 @@ class FilterGroup:
                 FilterDTO(
                     title=current_filter.title,
                     field_type=current_filter.field_type,
+                    name=current_filter.bindparam
                 )
             )
 

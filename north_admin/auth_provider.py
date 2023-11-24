@@ -10,6 +10,7 @@ from north_admin.helpers import dt_to_int
 from north_admin.types import ModelType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/admin/api/token')
 
 

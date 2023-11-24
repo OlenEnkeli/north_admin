@@ -34,6 +34,7 @@ class ColumnDTO(DTOBase):
 
 class FilterDTO(DTOBase):
     title: str
+    name: str
     field_type: FieldType
 
 

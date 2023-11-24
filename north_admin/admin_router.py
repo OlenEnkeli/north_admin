@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import Type
+from typing import Type, Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 from north_admin.auth_provider import AuthProvider
@@ -13,6 +13,7 @@ from north_admin.types import (
     ColumnType,
     FieldType,
     ModelType,
+    QueryType,
     sqlalchemy_column_to_pydantic,
 )
 from pydantic import BaseModel, ValidationError, create_model
@@ -42,6 +43,7 @@ class AdminRouter:
     filters_schema: BaseModel | None
 
     enabled_methods: list[AdminMethods]
+    process_query_method: Callable[[QueryType], QueryType]
     excluded_columns: list[ColumnType] | None = None
     list_columns: list[ColumnType]
     get_columns: list[ColumnType]
@@ -56,6 +58,7 @@ class AdminRouter:
         model: ModelType,
         emoji: str | None = None,
         model_title: str | None = None,
+        process_query_method: Callable[[QueryType], QueryType] | None = None,
         enabled_methods: list[AdminMethods] | None = None,
         pkey_column: ColumnType | None = None,
         list_columns: list[ColumnType] | None = None,
@@ -79,6 +82,7 @@ class AdminRouter:
         self.create_schema = None
         self.update_schema = None
 
+        self.process_query_method = process_query_method
         self.enabled_methods = enabled_methods if enabled_methods else list(AdminMethods)
         self.soft_delete_column = soft_delete_column if soft_delete_column else None
         self.filters = filters if filters else []
@@ -146,6 +150,7 @@ class AdminRouter:
                 pkey_column=self.pkey_column,
                 session=session,
                 item_id=self.convert_item_id_to_model_type(item_id),
+                process_query_method=self.process_query_method,
             )
 
     async def list_endpoint(
@@ -176,6 +181,7 @@ class AdminRouter:
                 sort_by=sort_by,
                 filters=self.filters,
                 filters_values=parsed_filters,
+                process_query_method=self.process_query_method,
             )
 
             return self.list_schema( # noqa
@@ -209,6 +215,7 @@ class AdminRouter:
                 pkey_column=self.pkey_column,
                 item_id=self.convert_item_id_to_model_type(item_id),
                 origin=origin,
+                process_query_method=self.process_query_method,
             )
 
     async def delete_endpoint(
@@ -221,6 +228,7 @@ class AdminRouter:
                 model=self.model,
                 pkey_column=self.pkey_column,
                 item_id=self.convert_item_id_to_model_type(item_id),
+                process_query_method=self.process_query_method,
             )
 
     async def soft_delete_endpoint(
@@ -236,6 +244,7 @@ class AdminRouter:
                 **{
                     self.soft_delete_column.key: False,
                 },
+                process_query_method=self.process_query_method,
             )
 
     async def restore_endpoint(
@@ -251,6 +260,7 @@ class AdminRouter:
                 **{
                     self.soft_delete_column.key: True,
                 },
+                process_query_method=self.process_query_method,
             )
 
     def create_models(

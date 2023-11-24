@@ -2,11 +2,13 @@ from datetime import datetime as dt
 from enum import Enum
 from typing import Self, Type
 
-from sqlalchemy import Column
-from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
+from sqlalchemy import Column, Select
+from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute, Query
+
 
 ModelType = Type[DeclarativeBase]
 ColumnType = Column | InstrumentedAttribute | None
+QueryType = Select | Query
 
 
 class AdminMethods(str, Enum):

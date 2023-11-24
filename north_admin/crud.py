@@ -1,7 +1,9 @@
+from typing import Callable
+
 from fastapi import HTTPException
-from north_admin.exceptions import NothingToUpdate
+from north_admin.exceptions import NothingToUpdate, ItemNotFoundException, DatabaseInternalException
 from north_admin.filters import FilterGroup
-from north_admin.types import ColumnType, ModelType
+from north_admin.types import ColumnType, ModelType, QueryType
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.exc import DatabaseError, IntegrityError
@@ -15,14 +17,18 @@ class CRUD:
         model: ModelType,
         pkey_column: ColumnType,
         item_id: int | str,
+        process_query_method: Callable[[QueryType], QueryType] | None = None,
     ) -> ModelType:
         query = select(model).filter(pkey_column == item_id)
+        if process_query_method:
+            query = process_query_method(query)
+
         item = await session.scalar(query)
 
         if not item:
-            raise HTTPException(
-                status_code=404,
-                detail=f'Can`t find {model.__table__} with id {item_id}.',
+            raise ItemNotFoundException(
+                model=model,
+                item_id=item_id,
             )
 
         return item
@@ -39,11 +45,11 @@ class CRUD:
             session.add(item)
             await session.commit()
             await session.refresh(item)
-        except (IntegrityError, DatabaseError) as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f'Can`t save item - {e}',
-            ) from e
+        except (IntegrityError, DatabaseError) as exc:
+            raise DatabaseInternalException(
+                model=model,
+                exception=exc,
+            ) from exc
 
         return item
 
@@ -54,6 +60,7 @@ class CRUD:
         item_id: int | str,
         pkey_column: ColumnType,
         origin: BaseModel | None = None,
+        process_query_method: Callable[[QueryType], QueryType] | None = None,
         **kwargs,
     ) -> ModelType:
         item = await self.get_item(
@@ -61,6 +68,7 @@ class CRUD:
             model=model,
             pkey_column=pkey_column,
             item_id=item_id,
+            process_query_method=process_query_method,
         )
 
         if not origin and not kwargs:
@@ -91,22 +99,24 @@ class CRUD:
         model: ModelType,
         item_id: int | str,
         pkey_column: ColumnType,
+        process_query_method: Callable[[QueryType], QueryType] | None = None,
     ) -> dict:
         item = await self.get_item(
             session=session,
             model=model,
             pkey_column=pkey_column,
             item_id=item_id,
+            process_query_method=process_query_method,
         )
 
         try:
             await session.delete(item)
             await session.commit()
-        except (IntegrityError, DatabaseError) as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f'Can`t update item - {e}',
-            ) from e
+        except (IntegrityError, DatabaseError) as exc:
+            raise DatabaseInternalException(
+                model=model,
+                exception=exc,
+            ) from exc
 
         return {'success': 'ok'}
 
@@ -122,6 +132,7 @@ class CRUD:
         soft_deleted_included: bool,
         filters: list[FilterGroup] | None,
         filters_values: dict[str, any] | None,
+        process_query_method: Callable[[QueryType], QueryType] | None = None,
     ) -> tuple[int, list[ModelType]]:
         """
         :return: (total_amount: int, model: ModelType)
@@ -135,11 +146,13 @@ class CRUD:
             .order_by(sort_by if sort_by else pkey_column)
         )
 
+        if process_query_method:
+            query = process_query_method(query)
+
         if not soft_deleted_included:
             query = query.filter(soft_delete_column.is_(True))
 
         for current_filter in filters:
-            print(current_filter.query)
             params = current_filter.query.compile().params
             disable_filter: bool = False
 

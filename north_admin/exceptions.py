@@ -1,5 +1,4 @@
 from fastapi import HTTPException
-
 from north_admin.types import ModelType
 
 

@@ -1,7 +1,8 @@
 from functools import reduce
-from typing import Type, Callable
+from typing import Callable, Type
 
 from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
 from north_admin.auth_provider import AuthProvider
 from north_admin.crud import crud
 from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMBase
@@ -77,6 +78,8 @@ class AdminRouter:
         self.emoji = emoji if emoji else generate_random_emoji()
         self.pagination_size = pagination_size
 
+        logger.debug(f'Adding admin pages for {self.model_id} model...')
+
         self.get_schema = None
         self.list_schema_one = None
         self.create_schema = None
@@ -132,6 +135,8 @@ class AdminRouter:
             tags=[self.model_title],
             dependencies=[Depends(self.auth_provider.get_auth_user)]
         )
+
+        logger.info(f'Admin pages for {self.model_id} model is up and ready.')
 
     def convert_item_id_to_model_type(
         self,

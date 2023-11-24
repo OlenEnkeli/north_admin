@@ -1,7 +1,7 @@
 from typing import Callable
 
 from fastapi import HTTPException
-from north_admin.exceptions import NothingToUpdate, ItemNotFoundException, DatabaseInternalException
+from north_admin.exceptions import DatabaseInternalException, ItemNotFoundException, NothingToUpdate
 from north_admin.filters import FilterGroup
 from north_admin.types import ColumnType, ModelType, QueryType
 from pydantic import BaseModel

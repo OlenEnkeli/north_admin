@@ -2,7 +2,6 @@ from datetime import datetime as dt
 from typing import Annotated
 
 import jwt
-
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from north_admin.dto import JWTTokens, UserLoginSchema

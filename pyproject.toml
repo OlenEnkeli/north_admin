@@ -15,6 +15,7 @@ random-unicode-emoji = "^2.8"
 greenlet = "^3.0.1"
 pyjwt = "^2.8.0"
 python-multipart = "^0.0.6"
+loguru = "^0.7.2"
 
 
 [tool.poetry.group.dev.dependencies]

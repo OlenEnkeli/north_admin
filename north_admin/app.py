@@ -2,6 +2,7 @@ from typing import Type
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 from north_admin.admin_router import AdminRouter
 from north_admin.auth_provider import AuthProvider
 from north_admin.dto import JWTTokens, ModelInfoDTO
@@ -95,6 +96,8 @@ class NorthAdmin:
         self,
         admin_router: AdminRouter,
     ) -> None:
+        logger.debug('Starting the NorthAdmin app...')
+
         admin_router.inject(
             sqlalchemy_session_maker=self.sqlalchemy_session_maker,
             auth_provider=self.auth_provider,
@@ -135,3 +138,4 @@ def setup_admin(
         allow_headers=['*'],
     )
 
+    logger.info('NorthAdmin app was started and adding to main app.')

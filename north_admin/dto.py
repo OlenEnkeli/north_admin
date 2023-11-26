@@ -21,6 +21,12 @@ class UserLoginSchema(ORMBase):
     password: str
 
 
+class UserReturnSchema(ORMBase):
+    id: str | int
+    login: str
+    fullname: str
+
+
 class ColumnDTO(DTOBase):
     column_type: FieldType
     nullable: bool

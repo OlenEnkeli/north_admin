@@ -4,7 +4,7 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from north_admin.dto import JWTTokens, UserLoginSchema
+from north_admin.dto import JWTTokens, UserLoginSchema, UserReturnSchema
 from north_admin.helpers import dt_to_int
 from north_admin.types import ModelType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -22,6 +22,7 @@ class AuthProvider:
         self,
         jwt_secret_key: str,
         sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
+
     ):
         self.jwt_secret_key = jwt_secret_key
         self.jwt_algorithm = 'HS256'
@@ -40,6 +41,12 @@ class AuthProvider:
         session: AsyncSession,
         user_id: int | str,
     ) -> ModelType | None:
+        raise NotImplementedError('Must by implemented in child class')
+
+    async def to_user_scheme(
+        self,
+        user: ModelType,
+    ) -> UserReturnSchema:
         raise NotImplementedError('Must by implemented in child class')
 
     async def login_endpoint(

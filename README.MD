@@ -19,6 +19,7 @@ Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pr
  - **Fast** - NorthAdmin using async DB drivers and Swelte as UI framework to make admin panel as fast as possible.
  - **PWA** - Similar solutions are offered by SSR, which is slower, less convenient and creates additional load on the server.
  - **Flexibility** - We can create almost any filters to expand the functionality of the admin panel.
+ - **Good-looking** - Modern Material UI-based interface thanks to [TailWindCSS](https://tailwindcss.com/)
 
 ## Example
 
@@ -92,6 +93,7 @@ from north_admin import (
     AdminMethods,
     AuthProvider,
     setup_admin,
+    UserReturnSchema,
 )
 from north_admin.types import ModelType, QueryType
 
@@ -123,7 +125,7 @@ class AdminAuthProvider(AuthProvider):
         session: AsyncSession,
         login: str,
         password: str,
-    ) -> ModelType | None:
+    ) -> User | None:
         query = (
             select(User)
             .filter(User.email == login)
@@ -136,7 +138,7 @@ class AdminAuthProvider(AuthProvider):
         self,
         session: AsyncSession,
         user_id: int | str,
-    ) -> ModelType | None:
+    ) -> User | None:
         query = (
             select(User)
             .filter(User.id == user_id)
@@ -145,6 +147,16 @@ class AdminAuthProvider(AuthProvider):
 
         return await session.scalar(query)
 
+    async def to_user_scheme(
+        self,
+        user: User,
+    ) -> UserReturnSchema:
+        return UserReturnSchema(
+            id=user.id,
+            login=user.email,
+            fullname=user.fullname,
+        )
+    
 
 admin_app = NorthAdmin(
     sqlalchemy_uri='postgresql+asyncpg://postgres:@127.0.0.1:5432/north_admin_test_app',
@@ -253,26 +265,44 @@ poetry run uvicorn north_admin.test_app:app --host 0.0.0.0 --port 8000 --reload
 
 ### Let's take a look at what's going on here
 
-- Firstly, we create `AdminAuthProvider`, what must implement two methods - `login` and `get_user_id`
+- Firstly, we create `AdminAuthProvider`, what must implement three methods - `login`, `get_user_id`, `to_user_scheme`
+
+  - `login` - get `User` by login and password 
+  - `get_user_by_id` - get `User` by id
+  - `to_user_schema` - dump `User` model to `UserReturnSchema`. 
+
 
 - Next we create `NorthAdmin` application with 3 required parameters (`sqlalchemy_uri`, `jwt_secket_key` and `auth_provider` - we just created it before)
 
+
 - Now we can add admin page to our admin panel (`add_admin_routes` methods)
 
-Let`s take a look at parameters:
+### Admin Router parameters:
 
  - `model` - SQLAlchemy model we want to administrate (**required**)
+
  - `model_title` - Verbose title (displayed in UI). By default generate from `model`
+
  - `emoji` - Emoji displayed near to model name in UI. By default - random emoji.
+
  - `enabled_methods` - List of actions, awailable in admin panel (`GET_LIST`, `GET_ONE`, `CREATE`, `UPDATE`, `DELETE`, `SOFT_DELETE`). By default - all ot them.
+
  - `process_query_method` - Function applied to SQLAlchemy query in (`GET_LIST`, `GET_ONE`, `UPDATE`, `DELETE`, `SOFT_DELETE`) methods. Feel free to excluding, filtering, etc.
+
  - `pkey_column` - Primary Key column. By default `model.id`
+
  - `list_columns` - Columns displayed when displaying a list of `model` items in UI. By default - all columns. 
+
  - `get_columns` - Similary for viewing one item. By default - all columns.
+
  - `create_columns` - Similary for creatine new item. By default - all non-key columns.
+
  - `update_columns` - Similary for updatings existing item. By default - all non-key columns.
+
  - `soft_delete_column` - Boolean SQLAlchemy column. When soft deleting (blocking) item, it set to `False`, is restoring to `True`. **Required**, if you have `SOFT_DELETE` in `enabled_methods`
+
  - `sortable_columns` - List of SQLAclehmy columns, A list of columns to which we can apply sorting in the UI. By default - all key column. (See `sort_by` params in list method)
+
  - `filters` - list of `FilterGroup` object. By default no filters applied.
 
 

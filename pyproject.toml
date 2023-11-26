@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "north_admin"
-version = "0.1.3"
+version = "0.1.4"
 description = "Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pre-render Swelte UI"
 authors = ["Anton Nikolskiy <a.nikolskiy@tyver.io>"]
 license = "GNU GENERAL PUBLIC LICENSE"

@@ -89,6 +89,13 @@ class AuthProvider:
 
             return self.create_jwt_tokens(user_id=user.id)
 
+    async def get_auth_user_endpoint(
+        self,
+        token: Annotated[str, Depends(oauth2_scheme)],
+    ) -> UserReturnSchema:
+        user = await self.get_auth_user(token=token)
+        return await self.to_user_scheme(user=user)
+
     async def get_auth_user(
         self,
         token: Annotated[str, Depends(oauth2_scheme)],

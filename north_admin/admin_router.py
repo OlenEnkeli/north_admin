@@ -132,7 +132,7 @@ class AdminRouter:
 
         self.router = APIRouter(
             prefix=f'/{self.model_id}',
-            tags=[self.model_title],
+            tags=[f'Admin: {self.model_title}'],
             dependencies=[Depends(self.auth_provider.get_auth_user)]
         )
 

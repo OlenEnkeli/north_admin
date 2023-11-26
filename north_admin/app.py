@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from north_admin.admin_router import AdminRouter
 from north_admin.auth_provider import AuthProvider
-from north_admin.dto import JWTTokens, ModelInfoDTO
+from north_admin.dto import JWTTokens, ModelInfoDTO, UserReturnSchema
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -74,23 +74,30 @@ class NorthAdmin:
             path='/',
             response_model=dict[str, ModelInfoDTO],
             description='Info about admin API structure',
-            tags=['Admin info'],
+            tags=['Admin: Info'],
         )(self.admin_info_route)
 
     def setup_admin_auth_route(self) -> None:
         self.api_router.post(
-            path='/login',
+            path='/auth/login',
             response_model=JWTTokens,
-            tags=['Auth'],
+            tags=['Admin: Auth'],
             description='Admin login method',
         )(self.auth_provider.login_endpoint)
 
         self.api_router.post(
             path='/token',
             response_model=JWTTokens,
-            tags=['Auth'],
+            tags=['Admin: Auth'],
             description='Admin login method (service)',
         )(self.auth_provider.token_endpoint)
+
+        self.api_router.get(
+            path='/auth/users/current',
+            response_model=UserReturnSchema,
+            tags=['Admin: Auth'],
+            description='Admin login method (service)',
+        )(self.auth_provider.get_auth_user_endpoint)
 
     def add_admin_routes(
         self,

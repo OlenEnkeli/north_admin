@@ -1,16 +1,20 @@
 from datetime import datetime as dt
+from datetime import timezone
 from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from north_admin.dto import JWTTokens, UserLoginSchema, UserReturnSchema
+from north_admin.dto import (
+    JWTTokens,
+    UserLoginSchema,
+    UserReturnSchema,
+)
 from north_admin.helpers import dt_to_int
 from north_admin.types import ModelType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/admin/api/token')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/admin/api/token")
 
 
 class AuthProvider:
@@ -22,10 +26,9 @@ class AuthProvider:
         self,
         jwt_secret_key: str,
         sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
-
-    ):
+    ) -> None:
         self.jwt_secret_key = jwt_secret_key
-        self.jwt_algorithm = 'HS256'
+        self.jwt_algorithm = "HS256"
         self.sqlalchemy_session_maker = sqlalchemy_session_maker
 
     async def login(
@@ -34,20 +37,20 @@ class AuthProvider:
         login: str,
         password: str,
     ) -> ModelType | None:
-        raise NotImplementedError('Must by implemented in child class')
+        raise NotImplementedError
 
     async def get_user_by_id(
         self,
         session: AsyncSession,
         user_id: int | str,
     ) -> ModelType | None:
-        raise NotImplementedError('Must by implemented in child class')
+        raise NotImplementedError
 
-    async def to_user_scheme(
+    async def to_user_schema(
         self,
         user: ModelType,
     ) -> UserReturnSchema:
-        raise NotImplementedError('Must by implemented in child class')
+        raise NotImplementedError
 
     async def login_endpoint(
         self,
@@ -63,7 +66,7 @@ class AuthProvider:
                 raise HTTPException(
                     status_code=401,
                     detail={
-                        'Unauthorized': 'wrong login or password'
+                        "Unauthorized": "wrong login or password",
                     },
                 )
 
@@ -83,7 +86,7 @@ class AuthProvider:
                 raise HTTPException(
                     status_code=401,
                     detail={
-                        'Unauthorized': 'wrong login or password'
+                        "Unauthorized": "wrong login or password",
                     },
                 )
 
@@ -94,7 +97,7 @@ class AuthProvider:
         token: Annotated[str, Depends(oauth2_scheme)],
     ) -> UserReturnSchema:
         user = await self.get_auth_user(token=token)
-        return await self.to_user_scheme(user=user)
+        return await self.to_user_schema(user=user)
 
     async def get_auth_user(
         self,
@@ -102,7 +105,7 @@ class AuthProvider:
     ) -> ModelType:
         user_id = self.validate_access_token(token)
         if not user_id:
-            raise HTTPException(status_code=401, detail='Wrong JWT Token')
+            raise HTTPException(status_code=401, detail="Wrong JWT Token")
 
         async with self.sqlalchemy_session_maker() as session:
             user = await self.get_user_by_id(
@@ -110,18 +113,18 @@ class AuthProvider:
                 user_id=user_id,
             )
             if not user:
-                raise HTTPException(status_code=401, detail='Wrong JWT Token')
+                raise HTTPException(status_code=401, detail="Wrong JWT Token")
 
             return user
 
     def create_jwt_tokens(
         self,
-        user_id: int | int,
+        user_id: int,
     ) -> JWTTokens:
         access_token_data = {
-            'user_id': user_id,
-            'type': 'access',
-            'expired_at': None,
+            "user_id": user_id,
+            "type": "access",
+            "expired_at": None,
         }
 
         access_token = jwt.encode(
@@ -131,9 +134,9 @@ class AuthProvider:
         )
 
         refresh_token_data = {
-            'user_id': user_id,
-            'access_token': access_token,
-            'type': 'refresh',
+            "user_id": user_id,
+            "access_token": access_token,
+            "type": "refresh",
         }
 
         refresh_token = jwt.encode(
@@ -151,8 +154,13 @@ class AuthProvider:
         self,
         access_token: str,
     ) -> str | None:
-        """ Returning user_id """
+        """Validate JWT access token.
 
+        Return:
+        ------
+            user_id: int
+
+        """
         payload: dict
 
         try:
@@ -165,16 +173,16 @@ class AuthProvider:
             return None
 
         if (
-            'user_id' not in payload.keys() or
-            'type' not in payload.keys() or
-            'expired_at' not in payload.keys()
+            "user_id" not in payload or
+            "type" not in payload or
+            "expired_at" not in payload
         ):
             return None
 
-        if payload['type'] != 'access':
+        if payload["type"] != "access":
             return None
 
-        if payload['expired_at'] and payload['expired_at'] <= dt_to_int(dt.now()):
+        if payload["expired_at"] and payload["expired_at"] <= dt_to_int(dt.now(tz=timezone.utc)):
             return None
 
-        return payload['user_id']
+        return payload["user_id"]

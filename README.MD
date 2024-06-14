@@ -1,18 +1,19 @@
-# NorthAdmin
+# 🏔NorthAdmin
 
 Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pre-render Swelte UI.
 
 ___
 
-[PyPI](https://pypi.org/project/north_admin/) | [GitHub](https://github.com/OlenEnkeli/north_admin) | [Example App](https://github.com/OlenEnkeli/north_admin_testapp) | [Frontend](https://github.com/OlenEnkeli/north_admin_frontend)
+[PyPI](https://pypi.org/project/north_admin/) | [ GitHub](https://github.com/OlenEnkeli/north_admin) | [Example App](https://github.com/OlenEnkeli/north_admin_testapp) | [Frontend](https://github.com/OlenEnkeli/north_admin_frontend)
 
 ___
 
-**This is beta-version and frontend part (UI) currenly is in development.**
+ > 🚧 **This is beta-version and frontend part (UI) currenly is in development.**
+ >
+ > **Now available only backend/API part.**
 
-**Now in NorthAdmin available only backend/API part,**
 
-## Requirements
+## 🛠️ Requirements
 
  - Python 3.11+
  - [FastAPI](https://github.com/tiangolo/fastapi) and [SQLAlclhemy](https://github.com/sqlalchemy/sqlalchemy)
@@ -75,9 +76,12 @@ Suppose we need the ability:
  - Soft delete (block) them
  - We can do it only with non-admin users (User.user_type == UserType.user)
 
-**This is an artificial one-line example.**
+ > 🚧 **This is an artificial one-line example.**
+ >
+ > If you need a more complete production-ready example, see [NorthAdmin Test App](https://github.com/OlenEnkeli/north_admin_testapp)
 
-If you need a more complete production-ready example, see [NorthAdmin Test App](https://github.com/OlenEnkeli/north_admin_testapp)
+
+
 
 So, here an out `admin.py` file:
 
@@ -127,10 +131,10 @@ class User(Base):
 
 class AdminAuthProvider(AuthProvider):
     async def login(
-        self,
-        session: AsyncSession,
-        login: str,
-        password: str,
+            self,
+            session: AsyncSession,
+            login: str,
+            password: str,
     ) -> User | None:
         query = (
             select(User)
@@ -141,9 +145,9 @@ class AdminAuthProvider(AuthProvider):
         return await session.scalar(query)
 
     async def get_user_by_id(
-        self,
-        session: AsyncSession,
-        user_id: int | str,
+            self,
+            session: AsyncSession,
+            user_id: int | str,
     ) -> User | None:
         query = (
             select(User)
@@ -154,19 +158,19 @@ class AdminAuthProvider(AuthProvider):
         return await session.scalar(query)
 
     async def to_user_scheme(
-        self,
-        user: User,
+            self,
+            user: User,
     ) -> UserReturnSchema:
         return UserReturnSchema(
             id=user.id,
             login=user.email,
             fullname=user.fullname,
         )
-    
+
 
 admin_app = NorthAdmin(
     sqlalchemy_uri='postgresql+asyncpg://postgres:@127.0.0.1:5432/north_admin_test_app',
-    jwt_secket_key='JNBjdejjn!w443@wer',
+    jwt_secret_key='JNBjdejjn!w443@wer',
     auth_provider=AdminAuthProvider,
 )
 

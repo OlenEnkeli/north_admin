@@ -1,14 +1,39 @@
-from functools import reduce
-from typing import Callable, Type
+"""Admin router module."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from math import ceil
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Type,
+)
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+)
 from loguru import logger
 from north_admin.auth_provider import AuthProvider
 from north_admin.crud import crud
-from north_admin.dto import ColumnDTO, ModelInfoDTO, ORMBase
-from north_admin.exceptions import NoDefinedPKException, NoSoftDeleteField, PKeyMustBeInList
+from north_admin.dto import (
+    ColumnDTO,
+    ModelInfoDTO,
+    ORMBase,
+)
+from north_admin.exceptions import (
+    CantConvertTypeError,
+    NoDefinedPKError,
+    NoSoftDeleteFieldError,
+    PKeyMustBeInListError,
+)
 from north_admin.filters import FilterGroup
-from north_admin.helpers import filters_dict, generate_random_emoji, set_origin_to_pydantic_schema
+from north_admin.helpers import (
+    filters_dict,
+    generate_random_emoji,
+    set_origin_to_pydantic_schema,
+)
 from north_admin.types import (
     AdminMethods,
     ColumnType,
@@ -17,12 +42,41 @@ from north_admin.types import (
     QueryType,
     sqlalchemy_column_to_pydantic,
 )
-from pydantic import BaseModel, ValidationError, create_model
+from pydantic import (
+    BaseModel,
+    ValidationError,
+    create_model,
+)
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 
 class AdminRouter:
+    """AdminRouter base class.
+
+    This class build up around SQLAlchemy model and describe behaviour of admin panel regarding this model.
+
+    Params:
+        model: SQLAlchemy model class
+        emoji: Emoji symbol displayed in admin panel menu (for default random)
+        model_title: Verbose title for admin panel
+        process_query_method: SQLAlchemy filter applied to all queries
+        enabled_methods: List of enabled methods (see AdminMethods enum)
+        pkey_column: Name of PKey column which using for default sorting, getting one object, etc (default id)
+        list_columns: List of column names to gel all action (default all non-key columns)
+        get_columns: List of column names to get one action (default all non-key columns)
+        create_columns: List of column names to create action (default all key columns)
+        update_columns: List of column names to update action (default all non key columns)
+        soft_delete_column: Name of boolean typed column using for soft deletion (e.q. is_active)
+        sortable_columns: A list of column names to which sorting can be applied (default all key columns)
+        excluded_columns: A list of column names to exclude of any queries
+
+    Return:
+    ------
+        AdminRouter: AdminRouter
+
+    """
+
     auth_provider: AuthProvider
     model: ModelType
     model_title: str
@@ -33,15 +87,13 @@ class AdminRouter:
     model_columns: list[ColumnType]
     pkey_column: ColumnType
     key_columns: list[ColumnType]
-    sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
-    pagination_size: int
 
-    create_schema: BaseModel | None
-    update_schema: BaseModel | None
-    get_schema: BaseModel | None
-    list_schema_one: BaseModel | None
-    list_schema: BaseModel | None
-    filters_schema: BaseModel | None
+    create_schema: Type[BaseModel] | None
+    update_schema: Type[BaseModel] | None
+    get_schema: Type[BaseModel] | None
+    list_schema_one: Type[BaseModel] | None
+    list_schema: Type[BaseModel] | None
+    filters_schema: Type[BaseModel] | None
 
     enabled_methods: list[AdminMethods]
     process_query_method: Callable[[QueryType], QueryType]
@@ -53,6 +105,8 @@ class AdminRouter:
     soft_delete_column: ColumnType | None
     sortable_columns: list[ColumnType]
     filters: list[FilterGroup] | None = None
+
+    _sqlalchemy_session_maker: async_sessionmaker[AsyncSession]
 
     def __init__(
         self,
@@ -69,16 +123,14 @@ class AdminRouter:
         soft_delete_column: ColumnType | None = None,
         sortable_columns: list[ColumnType] | None = None,
         excluded_columns: list[ColumnType] | None = None,
-        pagination_size: int = 100,
         filters: list[FilterGroup] | None = None,
-    ):
+    ) -> None:
         self.model = model
         self.model_id = str(self.model.__table__)
         self.model_title = model_title if model_title else self.model_id.capitalize()
         self.emoji = emoji if emoji else generate_random_emoji()
-        self.pagination_size = pagination_size
 
-        logger.debug(f'Adding admin pages for {self.model_id} model...')
+        logger.info(f"Adding admin pages for {self.model_id} model.")
 
         self.get_schema = None
         self.list_schema_one = None
@@ -97,7 +149,7 @@ class AdminRouter:
             try:
                 self.pkey_column = self.model.id
             except AttributeError:
-                raise NoDefinedPKException(model_id=self.model_id) from None
+                raise NoDefinedPKError(model_id=self.model_id) from None
 
         self.model_columns = inspect(model).columns.values()
 
@@ -120,61 +172,87 @@ class AdminRouter:
         self.sortable_columns = sortable_columns if sortable_columns else self.key_columns
 
         if self.pkey_column not in self.list_columns:
-            raise PKeyMustBeInList(self.model_id)
+            raise PKeyMustBeInListError(self.model_id)
 
     def inject(
         self,
         sqlalchemy_session_maker: async_sessionmaker[AsyncSession],
         auth_provider: AuthProvider,
-    ):
-        self.sqlalchemy_session_maker = sqlalchemy_session_maker
+    ) -> None:
+        """Inject router to NA application."""
+        self._sqlalchemy_session_maker = sqlalchemy_session_maker
         self.auth_provider = auth_provider
 
         self.router = APIRouter(
-            prefix=f'/{self.model_id}',
-            tags=[f'Admin: {self.model_title}'],
-            dependencies=[Depends(self.auth_provider.get_auth_user)]
+            prefix=f"/{self.model_id}",
+            tags=[f"Admin: {self.model_title}"],
+            dependencies=[Depends(self.auth_provider.get_auth_user)],
         )
 
-        logger.info(f'Admin pages for {self.model_id} model is up and ready.')
+        logger.info(f"Admin pages for {self.model_id} model is up and ready.")
 
-    def convert_item_id_to_model_type(
+    def _convert_item_id_to_model_type(
         self,
         item_id: int | str,
-    ):
-        python_type, _ = sqlalchemy_column_to_pydantic(column=self.pkey_column)
-        return python_type(item_id)
+    ) -> Type:
+        """Convert item_id to Python type."""
+        python_type: Type | None = None
 
-    async def get_endpoint(
+        try:
+            python_type, _ = sqlalchemy_column_to_pydantic(column=self.pkey_column)
+            return python_type(item_id)
+        except ValueError as error:
+            raise CantConvertTypeError(
+                model=self.model,
+                origin_type=type(item_id),
+                target_type=python_type,
+            ) from error
+
+    async def _get_endpoint(
         self,
         item_id: int | str,
     ) -> BaseModel:
-        async with self.sqlalchemy_session_maker() as session:
+        """Get object FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
             return await crud.get_item(
                 model=self.model,
                 pkey_column=self.pkey_column,
                 session=session,
-                item_id=self.convert_item_id_to_model_type(item_id),
+                item_id=self._convert_item_id_to_model_type(item_id),
                 process_query_method=self.process_query_method,
             )
 
-    async def list_endpoint(
+    async def _list_endpoint(
         self,
         page: int = 1,
+        pagination_size: int = 25,
+        *,
         sort_by: str | None = None,
+        sort_asc: bool = True,
         soft_deleted_included: bool = True,
         filters: str = Depends(filters_dict),
     ) -> BaseModel:
+        """Get many (list of) objects FastAPI endpoint."""
         parsed_filters: dict[str, any]
+        sort_by_column: ColumnType
 
         try:
             parsed_filters = self.filters_schema.model_validate(filters).model_dump()
-        except ValidationError as e:
+        except ValidationError as error:
             raise HTTPException(
                 status_code=422,
-                detail=f'Can`t parse filters: {e}',
-            ) from e
-        async with self.sqlalchemy_session_maker() as session:
+                detail=f"Can`t parse filters: {error}",
+            ) from error
+
+        try:
+            sort_by_column = getattr(self.model, sort_by) if sort_by else self.pkey_column
+        except AttributeError as error:
+            raise HTTPException(
+                status_code=422,
+                detail=f"No column {sort_by} in {self.model.__table__} model",
+            ) from error
+
+        async with self._sqlalchemy_session_maker() as session:
             total_amount, items = await crud.list_items(
                 session=session,
                 model=self.model,
@@ -182,73 +260,114 @@ class AdminRouter:
                 soft_deleted_included=soft_deleted_included,
                 soft_delete_column=self.soft_delete_column,
                 page=page,
-                pagination_size=self.pagination_size,
-                sort_by=sort_by,
+                pagination_size=pagination_size,
+                sort_asc=sort_asc,
+                sort_by=sort_by_column,
                 filters=self.filters,
                 filters_values=parsed_filters,
                 process_query_method=self.process_query_method,
             )
 
-            return self.list_schema( # noqa
+            return self.list_schema(
                 page=page,
-                pagination_size=self.pagination_size,
+                pagination_size=pagination_size,
+                pages_amount=ceil(total_amount / pagination_size),
                 total_amount=total_amount,
                 current_page_amount=len(items),
                 items=[self.list_schema_one.model_validate(item) for item in items],
             )
 
-    async def create_endpoint(
+    async def _create_endpoint(
         self,
         origin: any,
     ) -> BaseModel:
-        async with self.sqlalchemy_session_maker() as session:
+        """Create object FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
             return await crud.create_item(
                 session=session,
                 model=self.model,
                 origin=origin,
             )
 
-    async def update_endpoint(
+    async def _update_endpoint(
         self,
         origin: any,
         item_id: int | str,
     ) -> BaseModel:
-        async with self.sqlalchemy_session_maker() as session:
+        """Update object FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
             return await crud.update_item(
                 session=session,
                 model=self.model,
                 pkey_column=self.pkey_column,
-                item_id=self.convert_item_id_to_model_type(item_id),
+                item_id=self._convert_item_id_to_model_type(item_id),
                 origin=origin,
                 process_query_method=self.process_query_method,
             )
 
-    async def delete_endpoint(
+    async def _delete_endpoint(
         self,
         item_id: int | str,
     ) -> dict:
-        async with self.sqlalchemy_session_maker() as session:
-            return await crud.update_item(
+        """Delete object FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
+            return await crud.delete_item(
                 session=session,
                 model=self.model,
                 pkey_column=self.pkey_column,
-                item_id=self.convert_item_id_to_model_type(item_id),
+                item_id=self._convert_item_id_to_model_type(item_id),
                 process_query_method=self.process_query_method,
             )
 
-    async def soft_delete_endpoint(
+    async def _soft_delete_endpoint(
         self,
         item_id: int | str,
     ) -> BaseModel:
-        async with self.sqlalchemy_session_maker() as session:
+        """Soft delete / block FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
             return await crud.update_item(
                 session=session,
                 model=self.model,
                 pkey_column=self.pkey_column,
-                item_id=self.convert_item_id_to_model_type(item_id),
+                item_id=self._convert_item_id_to_model_type(item_id),
                 **{
                     self.soft_delete_column.key: False,
                 },
+                process_query_method=self.process_query_method,
+            )
+
+    async def _delete_multiply_endpoint(
+        self,
+        item_ids: Annotated[list[int | str], Query()],
+    ) -> dict:
+        """Delete multiple object FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
+            return await crud.delete_multiply(
+                session=session,
+                model=self.model,
+                pkey_column=self.pkey_column,
+                item_ids=[
+                    self._convert_item_id_to_model_type(item_id)
+                    for item_id in item_ids
+                ],
+                process_query_method=self.process_query_method,
+            )
+
+    async def _soft_delete_multiply_endpoint(
+        self,
+        item_ids: Annotated[list[int | str], Query()],
+    ) -> dict:
+        """Soft delete (block) multiply object FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
+            return await crud.soft_delete_multiply(
+                session=session,
+                model=self.model,
+                pkey_column=self.pkey_column,
+                soft_delete_column=self.soft_delete_column,
+                item_ids=[
+                    self._convert_item_id_to_model_type(item_id)
+                    for item_id in item_ids
+                ],
                 process_query_method=self.process_query_method,
             )
 
@@ -256,22 +375,23 @@ class AdminRouter:
         self,
         item_id: int | str,
     ) -> BaseModel:
-        async with self.sqlalchemy_session_maker() as session:
+        """Restore (unblock) object FastAPI endpoint."""
+        async with self._sqlalchemy_session_maker() as session:
             return await crud.update_item(
                 session=session,
                 model=self.model,
                 pkey_column=self.pkey_column,
-                item_id=self.convert_item_id_to_model_type(item_id),
+                item_id=self._convert_item_id_to_model_type(item_id),
                 **{
                     self.soft_delete_column.key: True,
                 },
                 process_query_method=self.process_query_method,
             )
 
-    def create_models(
+    def _create_models(
         self,
-        **kwargs,
-    ) -> BaseModel:
+        **kwargs: dict[str, Any],
+    ) -> Type[BaseModel]:
         return create_model(
             self.model_title,
             __config__=ORMBase.model_config,
@@ -279,15 +399,18 @@ class AdminRouter:
         )
 
     def setup_router(self) -> None:
+        """Setup router."""
+        filters = []
+
+        for current_filter in self.filters:
+            filters += current_filter.filter_dto_list()
+
         self.model_info = ModelInfoDTO(
             title=self.model_title,
             emoji=self.emoji,
             columns={},
             pkey_column=self.pkey_column.key,
-            filters=reduce(
-                lambda fg_left, fg_right: fg_left.filter_dto_list() + fg_right.filter_dto_list(),
-                self.filters,
-            ),
+            filters=filters,
             soft_delete_column=self.soft_delete_column.key if self.soft_delete_column else None,
         )
 
@@ -325,15 +448,14 @@ class AdminRouter:
                 update_schema_items[column.key] = pydantic_params
 
         if AdminMethods.GET_LIST in self.enabled_methods:
-            self.list_schema_one = self.create_models(**list_schema_items)
-            self.list_schema = self.create_models(
-                **{
-                    'page': (int, ...),
-                    'pagination_size': (int, ...),
-                    'current_page_amount': (int, ...),
-                    'total_amount': (int, ...),
-                    'items': (list[self.list_schema_one], ...),
-                }
+            self.list_schema_one = self._create_models(**list_schema_items)
+            self.list_schema = self._create_models(
+                page=(int, ...),
+                pagination_size=(int, ...),
+                pages_amount=(int, ...),
+                current_page_amount=(int, ...),
+                total_amount=(int, ...),
+                items=(list[self.list_schema_one], ...),
             )
 
             parsed_filters: dict[str, tuple[Type, any]] = {}
@@ -345,63 +467,73 @@ class AdminRouter:
                         None,
                     )
 
-            self.filters_schema = self.create_models(**parsed_filters)
+            self.filters_schema = self._create_models(**parsed_filters)
 
             self.router.get(
-                path='/',
+                path="/",
                 response_model=self.list_schema,
-            )(self.list_endpoint)
+            )(self._list_endpoint)
 
         if AdminMethods.GET_ONE in self.enabled_methods:
-            self.get_schema = self.create_models(**get_schema_items)
+            self.get_schema = self._create_models(**get_schema_items)
 
             self.router.get(
-                path='/{item_id}',
+                path="/{item_id}",
                 response_model=self.get_schema,
-            )(self.get_endpoint)
+            )(self._get_endpoint)
 
         if AdminMethods.CREATE in self.enabled_methods:
-            self.create_schema = self.create_models(**create_schema_items)
+            self.create_schema = self._create_models(**create_schema_items)
 
             decorated_endpoint = set_origin_to_pydantic_schema(
                 schema=self.create_schema,
-                function=self.create_endpoint,
+                function=self._create_endpoint,
             )
 
             self.router.post(
-                path='/',
+                path="/",
                 response_model=self.get_schema,
             )(decorated_endpoint)
 
         if AdminMethods.UPDATE in self.enabled_methods:
-            self.update_schema = self.create_models(**update_schema_items)
+            self.update_schema = self._create_models(**update_schema_items)
 
             decorated_endpoint = set_origin_to_pydantic_schema(
                 schema=self.update_schema,
-                function=self.update_endpoint,
+                function=self._update_endpoint,
             )
 
             self.router.patch(
-                path='/{item_id}',
+                path="/{item_id}",
                 response_model=self.get_schema,
             )(decorated_endpoint)
 
         if AdminMethods.DELETE in self.enabled_methods:
             self.router.delete(
-                path='/{item_id}',
+                path="/",
                 response_model=dict,
-            )(self.delete_endpoint)
+            )(self._delete_multiply_endpoint)
+
+            self.router.delete(
+                path="/{item_id}",
+                response_model=dict,
+            )(self._delete_endpoint)
 
         if AdminMethods.SOFT_DELETE in self.enabled_methods:
             if not self.soft_delete_column:
-                raise NoSoftDeleteField(model_id=self.model_id)
+                raise NoSoftDeleteFieldError(model_id=self.model_id)
 
             self.router.delete(
-                path='/{item_id}/soft',
+                path="/soft/",
+                response_model=dict,
+            )(self._soft_delete_multiply_endpoint)
+
+            self.router.delete(
+                path="/{item_id}/soft",
                 response_model=self.get_schema,
-            )(self.soft_delete_endpoint)
+            )(self._soft_delete_endpoint)
 
             self.router.get(
-                path='/{item_id}/restore',
+                path="/{item_id}/restore",
                 response_model=self.get_schema,
             )(self.restore_endpoint)

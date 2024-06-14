@@ -2,7 +2,7 @@
 name = "north_admin"
 version = "0.1.4"
 description = "Easy-to-setup PWA Admin Panel solution based on FastAPI, async SQLAlchemy and pre-render Swelte UI"
-authors = ["Anton Nikolskiy <a.nikolskiy@tyver.io>"]
+authors = ["Anton Nikolskiy <work.anton.nikolskiy@gmail.com>"]
 license = "GNU GENERAL PUBLIC LICENSE"
 readme = "README.MD"
 
@@ -10,7 +10,6 @@ readme = "README.MD"
 python = ">=3.11"
 sqlalchemy = "^2.0.23"
 fastapi = "^0.104.1"
-ruff = "^0.1.5"
 random-unicode-emoji = "^2.8"
 greenlet = "^3.0.1"
 pyjwt = "^2.8.0"
@@ -22,34 +21,68 @@ loguru = "^0.7.2"
 asyncpg = "^0.29.0"
 psycopg = "^3.1.13"
 uvicorn = "^0.24.0.post1"
+pytest = "^8.2.2"
+ruff = "^0.1.5"
+isort = "^5.13.2"
+mypy = "^1.10.0"
+pytest-anyio = "^0.0.0"
+pydantic-settings = "^2.3.2"
+faker = "^25.8.0"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+force_grid_wrap = 3
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "C",  # flake8-comprehensions
-    "B",  # flake8-bugbear
-    "UP",  # pyupgrade
-]
+src = ["src", "tests"]
+select = ["ALL"]
 ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex
-    "W191", # indentation contains tabs
+    "E501",    # line too long, handled by black
+    "B008",    # do not perform function calls in argument defaults
+    "C901",    # too complex
+    "W191",    # indentation contains tabs
+    "FA102",   # Missing `from __future__ import annotations`, but uses ...
+    "PLR0913", # Too many arguments in function definition
+    "D107",    # Missing docstring in `__init__`
+    "ANN101",  # Missing type annotation for `self` in method
+    "ANN102",  # Missing type annotation for `cls` in method
+    "PLR0912", # Too many branches (16 > 12)
+    "D100",    # Missing docstring in public module
+    "D101",    # Missing docstring in public class
+    "D102",    # Missing docstring in public method
+    "D103",    # Missing docstring in public function
+    "D104",    # Missing docstring in public package
+    "D105",    # Missing docstring in magic method
+    "D401",    # First line of docstring should be in imperative mood: "Setup router."
 ]
 
 line-length = 120
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",    # Use of `assert` detected
+    "S105",    # Possible hardcoded password assigned to: ...
+    "S106",    # Possible hardcoded password assigned to: ...
+    "ARG001",  # Unused function argument
+]
+
+
 [tool.ruff.isort]
-known-third-party = ["north_admin", "fastapi", "pydantic", "starlette", "sqlalchemy", "asyncpg", "psycopg"]
+known-third-party = [
+    "north_admin",
+    "fastapi",
+    "pydantic",
+    "starlette",
+    "sqlalchemy",
+    "asyncpg",
+    "psycopg",
+]
 
 [tool.ruff.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
-

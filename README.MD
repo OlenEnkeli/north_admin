@@ -20,15 +20,15 @@ ___
  - Any async DB driver like [AsyncPG](https://github.com/MagicStack/asyncpg)
  - Any ASGI Python server like [Uvicorn](https://github.com/encode/uvicorn)
 
-## Key benefits
+## 🌟 Key benefits
 
- - **Easy to integrate** - The amount of code that needs to be completed for the integration of the admin panel is minimal.
- - **Fast** - NorthAdmin using async DB drivers and Swelte as UI framework to make admin panel as fast as possible.
- - **PWA** - Similar solutions are offered by SSR, which is slower, less convenient and creates additional load on the server.
- - **Flexibility** - We can create almost any filters to expand the functionality of the admin panel.
- - **Good-looking** - Modern Material UI-based interface thanks to [TailWindCSS](https://tailwindcss.com/)
+ - 📌 **Easy to integrate** - The minimal amount of code that needs to be completed for the integration of the admin panel.
+ - 🧩 **Flexible** - We can create almost any filters and quires to expand the functionality of the admin panel.
+ - ✈️ **Fast** - NorthAdmin using async DB drivers and Swelte as UI framework to make admin panel as fast as possible.
+ - 🖥 **PWA** - Similar solutions are offered by SSR, which is slower, less convenient and creates additional load on the server.
+ - 🎆 **Good-looking** - Modern Material UI-based interface thanks to [TailWindCSS](https://tailwindcss.com/)
 
-## Example
+## ✏️ Example
 
 Let's assume that we have project with:
 
@@ -37,7 +37,12 @@ Let's assume that we have project with:
 
 In this example we prefer to use AsyncPG as driver.
 
-### Install NorthAdmin
+
+ > 👁‍🗨 It is **not necessary** that your project should use **FastAPI** as the main framework.
+ >
+ > **NorthAdmin** can be used as **separate app**.
+
+### 💾 Install NorthAdmin
 
 **Poetry**:
 
@@ -52,7 +57,7 @@ pip3 install sqlalchemy asyncpg uvicorn north_admin
 pip3 freezee -> requirements.txt
 ```
 
-### Add NorthAdmin in projects
+### ➕ Add NorthAdmin to your project
 
 For example, this is our `User` table look like:
 
@@ -69,19 +74,16 @@ class User(Base):
     created_at: Mapped[dt] = mapped_column(default=dt.now, server_default=func.current_timestamp())
 ```
 
+**Suppose we need the ability**:
 
-Suppose we need the ability:
  - To view a list of users
  - To get detailed information about each of them
  - Soft delete (block) them
  - We can do it only with non-admin users (User.user_type == UserType.user)
 
- > 🚧 **This is an artificial one-line example.**
+ > 🚧 **This is an artificial one-file example.**
  >
  > If you need a more complete production-ready example, see [NorthAdmin Test App](https://github.com/OlenEnkeli/north_admin_testapp)
-
-
-
 
 So, here an out `admin.py` file:
 
@@ -240,9 +242,10 @@ setup_admin(
 )
 ```
 
-Don't forget to use `Alembic` or other migration tools or `DeclarativeBase.Meta.create_all()` to create `User` table in DB
+ > 🚧 Don't forget to use `Alembic` or other migration tools or `DeclarativeBase.Meta.create_all()` to create `User` table in DB
 
-Short Example with psycopg:
+
+**Short Example with psycopg**:
 
 Add this in the end of `admin.py`:
 
@@ -266,14 +269,13 @@ python3 -m admin
 ```
 
 
-
 **Now we finally can run it**:
 
 ```bash
 poetry run uvicorn north_admin.test_app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Let's take a look at what's going on here
+### 🤔 Let's take a look at what's going on here
 
 - Firstly, we create `AdminAuthProvider`, what must implement three methods - `login`, `get_user_id`, `to_user_scheme`
 
@@ -282,12 +284,12 @@ poetry run uvicorn north_admin.test_app:app --host 0.0.0.0 --port 8000 --reload
   - `to_user_schema` - dump `User` model to `UserReturnSchema`. 
 
 
-- Next we create `NorthAdmin` application with 3 required parameters (`sqlalchemy_uri`, `jwt_secket_key` and `auth_provider` - we just created it before)
+- Next we create `NorthAdmin` application with 3 required parameters (`sqlalchemy_uri`, `jwt_secket_key` and `auth_provider`)
 
 
 - Now we can add admin page to our admin panel (`add_admin_routes` methods)
 
-### Admin Router parameters:
+### 🛣 Admin Router parameters:
 
  - `model` - SQLAlchemy model we want to administrate (**required**)
 
@@ -316,7 +318,7 @@ poetry run uvicorn north_admin.test_app:app --host 0.0.0.0 --port 8000 --reload
  - `filters` - list of `FilterGroup` object. By default no filters applied.
 
 
-### Filters
+### ⚗️ Filters
 
 Filters are represented by `FilterGroup` and `Filter` classes
 
@@ -331,12 +333,21 @@ In our case, we will see two filters in the admin panel:
  - Checkbox `Created Today`
  - Date-picker `Created After`
 
-Awailable `FieldType`: `INTEGER`, `BOOLEAN` (checkbox), `FLOAT`, `STRING`, `ENUM` (listpicker), `DATETIME` (datetime picker), `ARRAY` (several string input)
+Awailable `FieldType`: 
+
+ - `INTEGER`
+ - `BOOLEAN` (checkbox)
+ - `FLOAT`
+ - `STRING`
+ - `ENUM` (listpicker)
+ - `DATETIME` (datetime picker)
+ - `ARRAY` (several string input)
 
 
-**Filter system it may seem confusing (overcomplex) at the beginning, but it gives unlimited variability of implemented filters.**
+ > 🤔 Filter system it may seem confusing (overcomplex) at the beginning, but it gives **unlimited variability of implemented filters**.
 
-### Result
+
+### ✅ Result
 
 Restart FastAPI application and **admin panel is ready**.
 
@@ -346,4 +357,4 @@ E.q. we running app with Uvicorn on http://127.0.0.1 we have:
  - Admin Panel API in http://127.0.0.1/admin/api/
  - Swagger in http://127.0.0.1/admin/docs/
 
-Create user with `user_type=UserType.Admin`, check out Swagger and **enjoy using your new admin panel**.
+Create user with `user_type=UserType.ROOT`, check out Swagger and **enjoy using your new admin panel**.
